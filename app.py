@@ -12,6 +12,11 @@ SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 client = WebClient(token=SLACK_BOT_TOKEN)
 signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
+
+@app.route('/')
+def index():
+    return 'FaceSinq is running!'
+
 @app.route('/slack/events', methods=['POST'])
 def slack_events():
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
