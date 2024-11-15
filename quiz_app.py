@@ -17,15 +17,14 @@ def send_quiz_to_user(user_id):
     conn = sqlite3.connect('facesinq.db')
     c = conn.cursor()
 
-    # Exclude the user themselves
-    c.execute('SELECT id, name, image FROM users WHERE id != ? AND opted_in = 1', (user_id,))
+    # Get all colleagues (excluding the user themselves)
+    c.execute('SELECT id, name, image FROM users WHERE id != ?', (user_id,))
     colleagues = c.fetchall()
+
     if len(colleagues) < 4:
         print(f"Not enough colleagues to send a quiz to user {user_id}")
         conn.close()
         return
-
-    print(f"Sending quiz to user {user_id}")
 
     correct_choice = random.choice(colleagues)
     options = [correct_choice] + random.sample(
@@ -75,21 +74,29 @@ def send_quiz_to_user(user_id):
     conn.close()
 
 
+# quiz_app.py
+
 def send_quiz():
     global quiz_answers
+
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
     client = WebClient(token=SLACK_BOT_TOKEN)
+
     conn = sqlite3.connect('facesinq.db')
     c = conn.cursor()
-    # Select users who have opted in
+    # Select users who have opted in to receive quizzes
     c.execute('SELECT id FROM users WHERE opted_in = 1')
-    user_ids = [row[0] for row in c.fetchall()]
+    recipient_ids = [row[0] for row in c.fetchall()]
 
-    for user_id in user_ids:
-        # Exclude the user themselves
-        c.execute('SELECT id, name, image FROM users WHERE id != ? AND opted_in = 1', (user_id,))
-        colleagues = c.fetchall()
+    # Get all colleagues (regardless of opt-in status)
+    c.execute('SELECT id, name, image FROM users')
+    all_colleagues = c.fetchall()
+
+    for user_id in recipient_ids:
+        # Exclude the user themselves from options
+        colleagues = [colleague for colleague in all_colleagues if colleague[0] != user_id]
         if len(colleagues) < 4:
+            print(f"Not enough colleagues to send a quiz to user {user_id}")
             continue
 
         correct_choice = random.choice(colleagues)
@@ -102,7 +109,6 @@ def send_quiz():
         quiz_answers[user_id] = correct_choice[0]
 
         # Build interactive message
-        # Include the colleague's image
         blocks = [
             {
                 "type": "section",
@@ -130,11 +136,12 @@ def send_quiz():
         ]
 
         try:
-            client.chat_postMessage(
+            response = client.chat_postMessage(
                 channel=user_id,
                 text="Time for a quiz!",
                 blocks=blocks
             )
+            print(f"Message sent to user {user_id}, ts: {response['ts']}")
         except SlackApiError as e:
             print(f"Error sending message to {user_id}: {e.response['error']}")
     conn.close()

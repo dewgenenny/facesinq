@@ -34,6 +34,7 @@ def has_user_opted_in(user_id):
     return result is not None and result[0] == 1
 
 
+
 @app.route('/')
 def index():
     return 'FaceSinq is running!'

@@ -4,13 +4,9 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import sqlite3
 
+# utils.py
 def fetch_and_store_users():
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-    if not SLACK_BOT_TOKEN:
-        print("SLACK_BOT_TOKEN is not set or empty")
-    else:
-        print(f"SLACK_BOT_TOKEN is set, length: {len(SLACK_BOT_TOKEN)}")
-
     client = WebClient(token=SLACK_BOT_TOKEN)
 
     conn = sqlite3.connect('facesinq.db')
