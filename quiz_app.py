@@ -35,8 +35,8 @@ def send_quiz_to_user(user_id):
     random.shuffle(options)
 
     # Store the correct answer
-    quiz_answers[user_id] = correct_choice[0]
-
+    conn.execute('REPLACE INTO quiz_sessions (user_id, correct_user_id) VALUES (?, ?)', (user_id, correct_choice[0]))
+    conn.commit()
     # Build interactive message
     blocks = [
         # Text prompt

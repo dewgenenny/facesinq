@@ -70,7 +70,6 @@ def get_opted_in_user_count():
 def index():
     return 'FaceSinq is running!'
 
-
 @app.route('/slack/actions', methods=['POST'])
 def slack_actions():
     # Verify the request signature
@@ -87,24 +86,89 @@ def slack_actions():
     action_id = action['action_id']
     user_id = payload['user']['id']
     selected_user_id = action['value']
+    message_ts = payload['message']['ts']
+    channel_id = payload['channel']['id']
 
-    # Check if action_id starts with 'quiz_response_'
     if action_id.startswith('quiz_response_'):
-        # Handle the quiz response
-        correct_user_id = quiz_answers.get(user_id)
-        if not correct_user_id:
-            # No quiz answer stored
+        # Retrieve correct answer from database
+        conn = sqlite3.connect('facesinq.db')
+        c = conn.cursor()
+        c.execute('SELECT correct_user_id FROM quiz_sessions WHERE user_id = ?', (user_id,))
+        result = c.fetchone()
+        if not result or not result[0]:
+            conn.close()
+            client.chat_postMessage(channel=user_id, text="Sorry, your quiz session has expired.")
             return '', 200
 
-        if selected_user_id == correct_user_id:
-            # Correct answer
-            client.chat_postMessage(channel=user_id, text="🎉 Correct!")
+        correct_user_id = result[0]
+        conn.close()
+
+        # Determine if the user's selection is correct
+        is_correct = selected_user_id == correct_user_id
+
+        # Update the user's score if correct
+        if is_correct:
             update_score(user_id, 1)
+
+        # Prepare to update the original message
+        original_blocks = payload['message']['blocks']
+        selected_option_index = int(action_id.split('_')[-1])
+
+        # Modify the action block to reflect correct and incorrect choices
+        action_block = original_blocks[-1]
+        for idx, element in enumerate(action_block['elements']):
+            # Disable the button to prevent further interaction
+            element['action_id'] = None  # Remove action_id
+            element['type'] = 'button'
+            element['text']['emoji'] = True
+
+            # Style the buttons based on correctness
+            if element['value'] == correct_user_id:
+                element['style'] = 'primary'  # Correct answer in green
+            elif idx == selected_option_index:
+                element['style'] = 'danger'   # User's incorrect selection in red
+            else:
+                element['style'] = 'default'  # Other options remain default
+
+        # Add feedback text at the top
+        if is_correct:
+            feedback_text = "🎉 Correct! You really know your colleagues!"
         else:
-            # Incorrect answer
-            client.chat_postMessage(channel=user_id, text="❌ Incorrect.")
+            # Get the name of the correct colleague
+            conn = sqlite3.connect('facesinq.db')
+            c = conn.cursor()
+            c.execute('SELECT name FROM users WHERE id = ?', (correct_user_id,))
+            correct_name_result = c.fetchone()
+            conn.close()
+            correct_name = correct_name_result[0] if correct_name_result else "Unknown"
+            feedback_text = f"❌ Nope! This is your amazing colleague called *{correct_name}*."
+
+        # Insert feedback text at the top of the blocks
+        original_blocks.insert(0, {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": feedback_text
+            }
+        })
+
+        # Update the original message
+        try:
+            client.chat_update(
+                channel=channel_id,
+                ts=message_ts,
+                blocks=original_blocks
+            )
+        except SlackApiError as e:
+            print(f"Error updating message: {e.response['error']}")
+
         # Remove the stored answer
-        del quiz_answers[user_id]
+        conn = sqlite3.connect('facesinq.db')
+        c = conn.cursor()
+        c.execute('DELETE FROM quiz_sessions WHERE user_id = ?', (user_id,))
+        conn.commit()
+        conn.close()
+
     else:
         # Handle other actions if any
         pass

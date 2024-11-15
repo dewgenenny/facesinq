@@ -26,10 +26,17 @@ def init_db():
 def migrate_db():
     conn = sqlite3.connect('facesinq.db')
     c = conn.cursor()
-    # Add opted_in column if it doesn't exist
-    c.execute("PRAGMA table_info(users)")
+    c.execute("PRAGMA table_info(quiz_sessions)")
     columns = [column[1] for column in c.fetchall()]
-    if 'opted_in' not in columns:
-        c.execute('ALTER TABLE users ADD COLUMN opted_in INTEGER DEFAULT 0')
+    if not columns:
+        # Create the quiz_sessions table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS quiz_sessions (
+                user_id TEXT PRIMARY KEY,
+                correct_user_id TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         conn.commit()
     conn.close()
+
