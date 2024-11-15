@@ -39,7 +39,7 @@ def slack_commands():
     # Read environment variables inside the function
     SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
     signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
-
+    print(SLACK_SIGNING_SECRET)
 
     print("Slash command received")
     # Verify the request signature
