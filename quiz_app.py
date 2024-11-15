@@ -21,8 +21,11 @@ def send_quiz_to_user(user_id):
     c.execute('SELECT id, name, image FROM users WHERE id != ? AND opted_in = 1', (user_id,))
     colleagues = c.fetchall()
     if len(colleagues) < 4:
+        print(f"Not enough colleagues to send a quiz to user {user_id}")
         conn.close()
         return
+
+    print(f"Sending quiz to user {user_id}")
 
     correct_choice = random.choice(colleagues)
     options = [correct_choice] + random.sample(
@@ -61,14 +64,16 @@ def send_quiz_to_user(user_id):
     ]
 
     try:
-        client.chat_postMessage(
+        response = client.chat_postMessage(
             channel=user_id,
             text="Time for a quiz!",
             blocks=blocks
         )
+        print(f"Message sent to user {user_id}, ts: {response['ts']}")
     except SlackApiError as e:
         print(f"Error sending message to {user_id}: {e.response['error']}")
     conn.close()
+
 
 def send_quiz():
     global quiz_answers
