@@ -20,8 +20,18 @@ def send_quiz_to_user(user_id):
     c = conn.cursor()
 
     # Get all colleagues (excluding the user themselves)
-    c.execute('SELECT id, name, image FROM users WHERE id != ?', (user_id,))
-    colleagues = c.fetchall()
+    # Check if the user already has an active quiz session
+    c.execute('SELECT correct_user_id FROM quiz_sessions WHERE user_id = ?', (user_id,))
+    existing_quiz = c.fetchone()
+    if existing_quiz:
+        print(f"User {user_id} already has an active quiz.")
+        # Optionally send a message to the user
+        client.chat_postMessage(
+            channel=user_id,
+            text="You already have an active quiz! Please answer it before requesting a new one."
+        )
+        conn.close()
+        return
 
     if len(colleagues) < 4:
         print(f"Not enough colleagues to send a quiz to user {user_id}")
