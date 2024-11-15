@@ -161,13 +161,14 @@ def slack_actions():
                 "text": feedback_text
             }
         })
-
+        print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
         # Update the original message
         try:
             client.chat_update(
                 channel=channel_id,
                 ts=message_ts,
-                blocks=original_blocks
+                blocks=original_blocks,
+                text=feedback_text  # Add this line
             )
         except SlackApiError as e:
             print(f"Error updating message: {e.response['error']}")
