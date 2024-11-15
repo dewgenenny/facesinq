@@ -8,8 +8,6 @@ from slack_sdk.signature import SignatureVerifier
 app = Flask(__name__)
 
 SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-client = WebClient(token=SLACK_BOT_TOKEN)
 signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
 # Import quiz_answers from quiz_app
@@ -38,6 +36,8 @@ def index():
 
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():
+
+
     # Verify the request signature
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         return jsonify({'error': 'invalid request signature'}), 403
@@ -65,6 +65,8 @@ def slack_events():
     # Get the request body and headers
     body = request.get_data()
     headers = request.headers
+    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
+    client = WebClient(token=SLACK_BOT_TOKEN)
 
     # Parse the request body as JSON
     try:

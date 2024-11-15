@@ -4,15 +4,14 @@ import random
 import sqlite3
 import os
 
-SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-client = WebClient(token=SLACK_BOT_TOKEN)
 
 # Define quiz_answers at the module level
 quiz_answers = {}
 
 def send_quiz():
     global quiz_answers
-
+    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
+    client = WebClient(token=SLACK_BOT_TOKEN)
     conn = sqlite3.connect('facesinq.db')
     c = conn.cursor()
     # Select users who have opted in
