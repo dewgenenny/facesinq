@@ -36,8 +36,12 @@ def index():
 
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():
+    # Read environment variables inside the function
+    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
+    signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
 
+    print("Slash command received")
     # Verify the request signature
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         return jsonify({'error': 'invalid request signature'}), 403
@@ -65,6 +69,9 @@ def slack_events():
     # Get the request body and headers
     body = request.get_data()
     headers = request.headers
+    # Read environment variables inside the function
+    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
+    signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
     client = WebClient(token=SLACK_BOT_TOKEN)
 
