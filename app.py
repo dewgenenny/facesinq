@@ -11,9 +11,9 @@ app = Flask(__name__)
 #signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
 # Import quiz_answers from quiz_app
-from quiz_app import quiz_answers
+from quiz_app import quiz_answers, send_quiz_to_user
 from leaderboard import send_leaderboard  # Import send_leaderboard
-
+gi
 
 def update_opt_in_status(user_id, opt_in):
     conn = sqlite3.connect('facesinq.db')
@@ -25,6 +25,13 @@ def update_opt_in_status(user_id, opt_in):
     conn.commit()
     conn.close()
 
+def has_user_opted_in(user_id):
+    conn = sqlite3.connect('facesinq.db')
+    c = conn.cursor()
+    c.execute('SELECT opted_in FROM users WHERE id = ?', (user_id,))
+    result = c.fetchone()
+    conn.close()
+    return result is not None and result[0] == 1
 
 
 @app.route('/')
@@ -38,19 +45,14 @@ def index():
 def slack_commands():
     # Read environment variables inside the function
     SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-    signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
+    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
     client = WebClient(token=SLACK_BOT_TOKEN)
-
-    # Debugging: Check if the secret is being read
-    if not SLACK_SIGNING_SECRET:
-        print("SLACK_SIGNING_SECRET is not set or empty")
-    else:
-        print(f"SLACK_SIGNING_SECRET is set, length: {len(SLACK_SIGNING_SECRET)}")
 
     # Verify the request signature
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         return jsonify({'error': 'invalid request signature'}), 403
+
     command = request.form.get('command')
     user_id = request.form.get('user_id')
     text = request.form.get('text').strip().lower()
@@ -62,11 +64,21 @@ def slack_commands():
         elif text == 'opt-out':
             update_opt_in_status(user_id, False)
             return jsonify(response_type='ephemeral', text='You have opted out of FaceSinq quizzes.'), 200
+        elif text == 'quiz':
+            # Check if the user has opted in
+            if not has_user_opted_in(user_id):
+                return jsonify(response_type='ephemeral', text='You need to opt-in first using `/facesinq opt-in`.'), 200
+            # Send a quiz to the user
+            send_quiz_to_user(user_id)
+            return jsonify(response_type='ephemeral', text='Quiz sent!'), 200
+        elif text == 'stats':
+            # Handle the stats command (we'll implement this in the next section)
+            count = get_opted_in_user_count()
+            return jsonify(response_type='ephemeral', text=f'There are {count} users opted in to FaceSinq quizzes.'), 200
         else:
-            return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out]"), 200
+            return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats]"), 200
 
     return '', 404
-
 
 
 @app.route('/slack/events', methods=['POST'])
