@@ -39,13 +39,18 @@ def slack_commands():
     # Read environment variables inside the function
     SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
     signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
-    print(SLACK_SIGNING_SECRET)
+    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
+    client = WebClient(token=SLACK_BOT_TOKEN)
 
-    print("Slash command received")
+    # Debugging: Check if the secret is being read
+    if not SLACK_SIGNING_SECRET:
+        print("SLACK_SIGNING_SECRET is not set or empty")
+    else:
+        print(f"SLACK_SIGNING_SECRET is set, length: {len(SLACK_SIGNING_SECRET)}")
+
     # Verify the request signature
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         return jsonify({'error': 'invalid request signature'}), 403
-
     command = request.form.get('command')
     user_id = request.form.get('user_id')
     text = request.form.get('text').strip().lower()
