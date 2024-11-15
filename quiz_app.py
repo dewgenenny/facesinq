@@ -64,6 +64,7 @@ def send_quiz_to_user(user_id):
             "action_id": "quiz_response"
         })
 
+    print(blocks)
 
     try:
         response = client.chat_postMessage(
