@@ -46,21 +46,24 @@ def send_quiz_to_user(user_id):
             "accessory": {
                 "type": "image",
                 "image_url": correct_choice[2] or "https://via.placeholder.com/150",
-                "alt_text": "Colleague's image"
+                "alt_text": correct_choice[1] or "Colleague's image"
             }
         },
         {
             "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": option[1]},
-                    "value": option[0],
-                    "action_id": "quiz_response"
-                } for option in options
-            ]
+            "elements": []
         }
     ]
+
+    # Populate the actions block with options
+    for option in options:
+        blocks[1]["elements"].append({
+            "type": "button",
+            "text": {"type": "plain_text", "text": option[1]},
+            "value": option[0],
+            "action_id": "quiz_response"
+        })
+
 
     try:
         response = client.chat_postMessage(
