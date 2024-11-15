@@ -69,8 +69,18 @@ def send_quiz_to_user(user_id):
             "action_id": f"quiz_response_{idx}"
         })
 
-    # Debugging: Print the blocks payload
-    print(f"Sending the following blocks payload: {blocks}")
+        # Add the "Next Quiz" button in a new actions block
+    blocks.append({
+        "type": "actions",
+        "elements": [
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Next Quiz"},
+                "value": "next_quiz",
+                "action_id": "next_quiz"
+            }
+        ]
+    })
 
     try:
         response = client.chat_postMessage(

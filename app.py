@@ -181,6 +181,34 @@ def slack_actions():
         c.execute('DELETE FROM quiz_sessions WHERE user_id = ?', (user_id,))
         conn.commit()
         conn.close()
+    elif action_id == 'next_quiz':
+        # Handle the "Next Quiz" button click
+        send_quiz_to_user(user_id)
+
+        # Modify the original message to disable the "Next Quiz" button
+        original_blocks = payload['message']['blocks']
+
+        # Find the actions block containing the "Next Quiz" button
+        for block in original_blocks:
+            if block['type'] == 'actions':
+                for element in block['elements']:
+                    if element.get('action_id') == 'next_quiz':
+                        # Disable the button
+                        element['action_id'] = 'disabled_next_quiz'
+                        element['text']['text'] = "Next Quiz Sent"
+                        element['style'] = 'primary'
+                        break
+
+        # Update the message
+        try:
+            client.chat_update(
+                channel=channel_id,
+                ts=message_ts,
+                blocks=original_blocks,
+                text="Here's your next quiz!"
+            )
+        except SlackApiError as e:
+            print(f"Error updating message: {e.response['error']}")
 
     else:
         # Handle other actions if any
