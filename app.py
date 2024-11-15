@@ -21,6 +21,10 @@ def index():
 def slack_events():
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         return jsonify({'error': 'invalid request'}), 403
+    # Handle URL verification challenge
+    data = json.loads(request.data)
+    if data.get('type') == 'url_verification':
+        return jsonify({'challenge': data.get('challenge')})
 
     payload = json.loads(request.form['payload'])
     user_id = payload['user']['id']
