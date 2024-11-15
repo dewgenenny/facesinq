@@ -63,4 +63,5 @@ if __name__ == '__main__':
     from leaderboard import send_leaderboard
     scheduler.add_job(send_leaderboard, 'cron', day_of_week='fri', hour=17)  # Adjust timing as needed
 
-    app.run(host='0.0.0.0', port=3000)
+    port = int(os.environ.get('PORT', 3000))
+    app.run(host='0.0.0.0', port=port)

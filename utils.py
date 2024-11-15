@@ -12,6 +12,7 @@ def fetch_and_store_users():
     try:
         response = client.users_list()
         for member in response['members']:
+
             if not member['is_bot'] and not member['deleted']:
                 user_id = member['id']
                 name = member['real_name']
