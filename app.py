@@ -49,6 +49,23 @@ def update_score(user_id, points):
     conn.commit()
     conn.close()
 
+def get_user_score(user_id):
+    conn = sqlite3.connect('facesinq.db')
+    c = conn.cursor()
+    c.execute('SELECT score FROM scores WHERE user_id = ?', (user_id,))
+    result = c.fetchone()
+    conn.close()
+    return result[0] if result else 0
+
+def get_opted_in_user_count():
+    conn = sqlite3.connect('facesinq.db')
+    c = conn.cursor()
+    c.execute('SELECT COUNT(*) FROM users WHERE opted_in = 1')
+    count = c.fetchone()[0]
+    conn.close()
+    return count
+
+
 @app.route('/')
 def index():
     return 'FaceSinq is running!'
@@ -129,7 +146,11 @@ def slack_commands():
             # Handle the stats command (we'll implement this in the next section)
             count = get_opted_in_user_count()
             return jsonify(response_type='ephemeral', text=f'There are {count} users opted in to FaceSinq quizzes.'), 200
-        else:
+        elif text == 'score':
+            score = get_user_score(user_id)
+            return jsonify(response_type='ephemeral', text=f'Your current score is {score}.'), 200
+
+    else:
             return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats]"), 200
 
     return '', 404

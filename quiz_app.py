@@ -39,18 +39,21 @@ def send_quiz_to_user(user_id):
 
     # Build interactive message
     blocks = [
+        # Text prompt
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": "*Who's this colleague?*"
-            },
-            "accessory": {
-                "type": "image",
-                "image_url": correct_choice[2] or "https://via.placeholder.com/150",
-                "alt_text": correct_choice[1] or "Colleague's image"
             }
         },
+        # Larger image block
+        {
+            "type": "image",
+            "image_url": correct_choice[2] or "https://via.placeholder.com/600",
+            "alt_text": "Image of a colleague"
+        },
+        # Action buttons
         {
             "type": "actions",
             "elements": []
@@ -59,7 +62,7 @@ def send_quiz_to_user(user_id):
 
     # Populate the actions block with options, ensuring unique action_ids
     for idx, option in enumerate(options):
-        blocks[1]["elements"].append({
+        blocks[2]["elements"].append({
             "type": "button",
             "text": {"type": "plain_text", "text": option[1]},
             "value": option[0],
@@ -80,6 +83,9 @@ def send_quiz_to_user(user_id):
         print(f"Error sending message to {user_id}: {e.response['error']}")
     conn.close()
 
+
+
+# quiz_app.py
 
 # quiz_app.py
 
@@ -117,30 +123,38 @@ def send_quiz():
 
         # Build interactive message
         blocks = [
+            # Text prompt
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
                     "text": "*Who's this colleague?*"
-                },
-                "accessory": {
-                    "type": "image",
-                    "image_url": correct_choice[2] or "https://via.placeholder.com/150",
-                    "alt_text": "Colleague's image"
                 }
             },
+            # Larger image block
+            {
+                "type": "image",
+                "image_url": correct_choice[2] or "https://via.placeholder.com/600",
+                "alt_text": "Image of a colleague"
+            },
+            # Action buttons
             {
                 "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": option[1]},
-                        "value": option[0],
-                        "action_id": "quiz_response"
-                    } for option in options
-                ]
+                "elements": []
             }
         ]
+
+        # Populate the actions block with options, ensuring unique action_ids
+        for idx, option in enumerate(options):
+            blocks[2]["elements"].append({
+                "type": "button",
+                "text": {"type": "plain_text", "text": option[1]},
+                "value": option[0],
+                "action_id": f"quiz_response_{idx}"
+            })
+
+        # Debugging: Print the blocks payload
+        print(f"Sending the following blocks payload to user {user_id}: {blocks}")
 
         try:
             response = client.chat_postMessage(
@@ -152,3 +166,4 @@ def send_quiz():
         except SlackApiError as e:
             print(f"Error sending message to {user_id}: {e.response['error']}")
     conn.close()
+
