@@ -7,8 +7,8 @@ from slack_sdk.signature import SignatureVerifier
 
 app = Flask(__name__)
 
-SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
+#SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
+#signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
 # Import quiz_answers from quiz_app
 from quiz_app import quiz_answers
