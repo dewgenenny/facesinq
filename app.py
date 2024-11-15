@@ -33,14 +33,67 @@ def has_user_opted_in(user_id):
     conn.close()
     return result is not None and result[0] == 1
 
-
+def update_score(user_id, points):
+    conn = sqlite3.connect('facesinq.db')
+    c = conn.cursor()
+    # Check if the user already has a score entry
+    c.execute('SELECT score FROM scores WHERE user_id = ?', (user_id,))
+    result = c.fetchone()
+    if result:
+        # Update the existing score
+        new_score = result[0] + points
+        c.execute('UPDATE scores SET score = ? WHERE user_id = ?', (new_score, user_id))
+    else:
+        # Insert a new score entry
+        c.execute('INSERT INTO scores (user_id, score) VALUES (?, ?)', (user_id, points))
+    conn.commit()
+    conn.close()
 
 @app.route('/')
 def index():
     return 'FaceSinq is running!'
 
 
-# app.py
+@app.route('/slack/actions', methods=['POST'])
+def slack_actions():
+    # Verify the request signature
+    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
+    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
+    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
+    client = WebClient(token=SLACK_BOT_TOKEN)
+
+    if not signature_verifier.is_valid_request(request.get_data(), request.headers):
+        return jsonify({'error': 'invalid request signature'}), 403
+
+    payload = json.loads(request.form.get('payload'))
+    action = payload['actions'][0]
+    action_id = action['action_id']
+    user_id = payload['user']['id']
+    selected_user_id = action['value']
+
+    # Check if action_id starts with 'quiz_response_'
+    if action_id.startswith('quiz_response_'):
+        # Handle the quiz response
+        correct_user_id = quiz_answers.get(user_id)
+        if not correct_user_id:
+            # No quiz answer stored
+            return '', 200
+
+        if selected_user_id == correct_user_id:
+            # Correct answer
+            client.chat_postMessage(channel=user_id, text="🎉 Correct!")
+            update_score(user_id, 1)
+        else:
+            # Incorrect answer
+            client.chat_postMessage(channel=user_id, text="❌ Incorrect.")
+        # Remove the stored answer
+        del quiz_answers[user_id]
+    else:
+        # Handle other actions if any
+        pass
+
+    return '', 200
+
 
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():

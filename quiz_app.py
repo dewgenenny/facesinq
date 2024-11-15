@@ -8,6 +8,8 @@ import os
 # Define quiz_answers at the module level
 quiz_answers = {}
 
+# quiz_app.py
+
 def send_quiz_to_user(user_id):
     global quiz_answers
 
@@ -55,16 +57,17 @@ def send_quiz_to_user(user_id):
         }
     ]
 
-    # Populate the actions block with options
-    for option in options:
+    # Populate the actions block with options, ensuring unique action_ids
+    for idx, option in enumerate(options):
         blocks[1]["elements"].append({
             "type": "button",
             "text": {"type": "plain_text", "text": option[1]},
             "value": option[0],
-            "action_id": "quiz_response"
+            "action_id": f"quiz_response_{idx}"
         })
 
-    print(blocks)
+    # Debugging: Print the blocks payload
+    print(f"Sending the following blocks payload: {blocks}")
 
     try:
         response = client.chat_postMessage(
