@@ -13,7 +13,7 @@ app = Flask(__name__)
 # Import quiz_answers from quiz_app
 from quiz_app import quiz_answers, send_quiz_to_user
 from leaderboard import send_leaderboard  # Import send_leaderboard
-gi
+
 
 def update_opt_in_status(user_id, opt_in):
     conn = sqlite3.connect('facesinq.db')
