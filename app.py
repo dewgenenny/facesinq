@@ -127,10 +127,10 @@ def slack_actions():
         # Modify the action block to reflect correct and incorrect choices
         action_block = original_blocks[-1]
         for idx, element in enumerate(action_block['elements']):
-            # Disable the button to prevent further interaction
-            element['action_id'] = None  # Remove action_id
-            element['type'] = 'button'
-            element['text']['emoji'] = True
+            # Assign a new action_id to disable further interaction
+            element['action_id'] = f"disabled_{idx}"  # Set a unique action_id
+            element['value'] = element['value']  # Ensure 'value' remains the same
+            element['text']['emoji'] = True  # Ensure 'emoji' field is set
 
             # Style the buttons based on correctness
             if element['value'] == correct_user_id:
@@ -138,7 +138,9 @@ def slack_actions():
             elif idx == selected_option_index:
                 element['style'] = 'danger'   # User's incorrect selection in red
             else:
-                element['style'] = 'default'  # Other options remain default
+                element.pop('style', None)    # Remove 'style' if any
+        print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
+
 
         # Add feedback text at the top
         if is_correct:
