@@ -19,7 +19,6 @@ def send_quiz_to_user(user_id):
     conn = sqlite3.connect('facesinq.db')
     c = conn.cursor()
 
-    # Get all colleagues (excluding the user themselves)
     # Check if the user already has an active quiz session
     c.execute('SELECT correct_user_id FROM quiz_sessions WHERE user_id = ?', (user_id,))
     existing_quiz = c.fetchone()
@@ -32,6 +31,7 @@ def send_quiz_to_user(user_id):
         )
         conn.close()
         return
+    colleagues = c.fetchall()
 
     if len(colleagues) < 4:
         print(f"Not enough colleagues to send a quiz to user {user_id}")
