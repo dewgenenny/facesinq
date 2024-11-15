@@ -3,7 +3,9 @@ import sqlite3
 import json
 import os
 from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 from slack_sdk.signature import SignatureVerifier
+from db import init_db, migrate_db
 
 app = Flask(__name__)
 
@@ -13,6 +15,15 @@ app = Flask(__name__)
 # Import quiz_answers from quiz_app
 from quiz_app import quiz_answers, send_quiz_to_user
 from leaderboard import send_leaderboard  # Import send_leaderboard
+
+
+@app.before_first_request
+def initialize():
+    init_db()
+    migrate_db()
+    fetch_and_store_users()
+
+
 
 
 def update_opt_in_status(user_id, opt_in):
