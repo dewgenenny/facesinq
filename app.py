@@ -16,9 +16,49 @@ signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 from quiz_app import quiz_answers
 from leaderboard import send_leaderboard  # Import send_leaderboard
 
+
+def update_opt_in_status(user_id, opt_in):
+    conn = sqlite3.connect('facesinq.db')
+    c = conn.cursor()
+    opted_in_value = 1 if opt_in else 0
+
+    # Update the user's opt-in status
+    c.execute('UPDATE users SET opted_in = ? WHERE id = ?', (opted_in_value, user_id))
+    conn.commit()
+    conn.close()
+
+
+
 @app.route('/')
 def index():
     return 'FaceSinq is running!'
+
+
+# app.py
+
+@app.route('/slack/commands', methods=['POST'])
+def slack_commands():
+    # Verify the request signature
+    if not signature_verifier.is_valid_request(request.get_data(), request.headers):
+        return jsonify({'error': 'invalid request signature'}), 403
+
+    command = request.form.get('command')
+    user_id = request.form.get('user_id')
+    text = request.form.get('text').strip().lower()
+
+    if command == '/facesinq':
+        if text == 'opt-in':
+            update_opt_in_status(user_id, True)
+            return jsonify(response_type='ephemeral', text='You have opted in to FaceSinq quizzes!'), 200
+        elif text == 'opt-out':
+            update_opt_in_status(user_id, False)
+            return jsonify(response_type='ephemeral', text='You have opted out of FaceSinq quizzes.'), 200
+        else:
+            return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out]"), 200
+
+    return '', 404
+
+
 
 @app.route('/slack/events', methods=['POST'])
 def slack_events():
@@ -82,12 +122,14 @@ def slack_events():
     return '', 404
 
 if __name__ == '__main__':
-    from db import init_db
+
+    from db import init_db, migrate_db
     from utils import fetch_and_store_users
     from quiz_app import send_quiz
     from apscheduler.schedulers.background import BackgroundScheduler
 
     init_db()
+    migrate_db()
     fetch_and_store_users()
 
     # Schedule the quiz

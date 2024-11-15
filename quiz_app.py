@@ -11,16 +11,17 @@ client = WebClient(token=SLACK_BOT_TOKEN)
 quiz_answers = {}
 
 def send_quiz():
-    global quiz_answers  # Declare as global to modify the module-level variable
+    global quiz_answers
 
-    conn = sqlite3.connect('quiz.db')
+    conn = sqlite3.connect('facesinq.db')
     c = conn.cursor()
-    c.execute('SELECT id FROM users')
+    # Select users who have opted in
+    c.execute('SELECT id FROM users WHERE opted_in = 1')
     user_ids = [row[0] for row in c.fetchall()]
 
     for user_id in user_ids:
         # Exclude the user themselves
-        c.execute('SELECT id, name FROM users WHERE id != ?', (user_id,))
+        c.execute('SELECT id, name, image FROM users WHERE id != ? AND opted_in = 1', (user_id,))
         colleagues = c.fetchall()
         if len(colleagues) < 4:
             continue
@@ -31,10 +32,11 @@ def send_quiz():
         )
         random.shuffle(options)
 
-        # Store the correct answer temporarily
+        # Store the correct answer
         quiz_answers[user_id] = correct_choice[0]
 
         # Build interactive message
+        # Include the colleague's image
         blocks = [
             {
                 "type": "section",
@@ -44,7 +46,7 @@ def send_quiz():
                 },
                 "accessory": {
                     "type": "image",
-                    "image_url": "https://via.placeholder.com/150",  # Replace with actual image if available
+                    "image_url": correct_choice[2] or "https://via.placeholder.com/150",
                     "alt_text": "Colleague's image"
                 }
             },
