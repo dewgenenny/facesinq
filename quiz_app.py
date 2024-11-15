@@ -7,7 +7,12 @@ import os
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 client = WebClient(token=SLACK_BOT_TOKEN)
 
+# Define quiz_answers at the module level
+quiz_answers = {}
+
 def send_quiz():
+    global quiz_answers  # Declare as global to modify the module-level variable
+
     conn = sqlite3.connect('quiz.db')
     c = conn.cursor()
     c.execute('SELECT id FROM users')
@@ -21,13 +26,12 @@ def send_quiz():
             continue
 
         correct_choice = random.choice(colleagues)
-        options = [correct_choice] + random.sample([col for col in colleagues if col != correct_choice], 3)
+        options = [correct_choice] + random.sample(
+            [col for col in colleagues if col != correct_choice], 3
+        )
         random.shuffle(options)
 
         # Store the correct answer temporarily
-        global quiz_answers
-        if 'quiz_answers' not in globals():
-            quiz_answers = {}
         quiz_answers[user_id] = correct_choice[0]
 
         # Build interactive message
@@ -36,7 +40,7 @@ def send_quiz():
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*Who's this colleague?*"
+                    "text": "*Who's this colleague?*"
                 },
                 "accessory": {
                     "type": "image",
