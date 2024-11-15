@@ -13,7 +13,7 @@ app = Flask(__name__)
 #signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
 
 # Import quiz_answers from quiz_app
-from quiz_app import quiz_answers, send_quiz_to_user
+from quiz_app import send_quiz_to_user
 from leaderboard import send_leaderboard  # Import send_leaderboard
 
 
@@ -237,7 +237,7 @@ def slack_events():
     headers = request.headers
     # Read environment variables inside the function
     SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-    signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
+    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
     client = WebClient(token=SLACK_BOT_TOKEN)
 
@@ -255,37 +255,6 @@ def slack_events():
     # Verify the request signature
     if not signature_verifier.is_valid_request(body, headers):
         return jsonify({'error': 'invalid request signature'}), 403
-
-    # Handle interactive message payloads
-    if 'payload' in request.form:
-        payload = json.loads(request.form['payload'])
-        user_id = payload['user']['id']
-        action = payload['actions'][0]
-        selected_user_id = action['value']
-
-        # Retrieve the correct answer
-        correct_user_id = quiz_answers.get(user_id)
-
-        conn = sqlite3.connect('quiz.db')
-        c = conn.cursor()
-
-        if not correct_user_id:
-            message = "Sorry, your quiz session has expired."
-        elif selected_user_id == correct_user_id:
-            # Update score
-            c.execute('INSERT OR IGNORE INTO scores (user_id, score) VALUES (?, 0)', (user_id,))
-            c.execute('UPDATE scores SET score = score + 1 WHERE user_id = ?', (user_id,))
-            conn.commit()
-            message = "🎉 Correct!"
-        else:
-            message = "❌ Incorrect."
-
-        # Clean up
-        quiz_answers.pop(user_id, None)
-        conn.close()
-
-        client.chat_postMessage(channel=user_id, text=message)
-        return '', 200
 
     # Handle event callbacks
     if data.get('type') == 'event_callback':
