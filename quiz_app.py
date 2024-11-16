@@ -128,76 +128,75 @@ def send_quiz():
 
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
     client = WebClient(token=SLACK_BOT_TOKEN)
+    session = Session()
 
-    conn = sqlite3.connect('facesinq.db')
-    c = conn.cursor()
-    # Select users who have opted in to receive quizzes
-    c.execute('SELECT id FROM users WHERE opted_in = 1')
-    recipient_ids = [row[0] for row in c.fetchall()]
+    try:
+        # Select users who have opted in to receive quizzes
+        recipient_ids = session.query(User.id).filter(User.opted_in == True).all()
+        recipient_ids = [user_id[0] for user_id in recipient_ids]
 
-    # Get all colleagues (regardless of opt-in status)
-    c.execute('SELECT id, name, image FROM users')
-    all_colleagues = c.fetchall()
+        # Get all colleagues (regardless of opt-in status)
+        all_colleagues = session.query(User).all()
 
-    for user_id in recipient_ids:
-        # Exclude the user themselves from options
-        colleagues = [colleague for colleague in all_colleagues if colleague[0] != user_id]
-        if len(colleagues) < 4:
-            print(f"Not enough colleagues to send a quiz to user {user_id}")
-            continue
+        for user_id in recipient_ids:
+            # Exclude the user themselves from options
+            colleagues = [colleague for colleague in all_colleagues if colleague.id != user_id]
+            if len(colleagues) < 4:
+                print(f"Not enough colleagues to send a quiz to user {user_id}")
+                continue
 
-        correct_choice = random.choice(colleagues)
-        options = [correct_choice] + random.sample(
-            [col for col in colleagues if col != correct_choice], 3
-        )
-        random.shuffle(options)
-
-        # Store the correct answer
-        quiz_answers[user_id] = correct_choice[0]
-
-        # Build interactive message
-        blocks = [
-            # Text prompt
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "*Who's this colleague?*"
-                }
-            },
-            # Larger image block
-            {
-                "type": "image",
-                "image_url": correct_choice[2] or "https://via.placeholder.com/600",
-                "alt_text": "Image of a colleague"
-            },
-            # Action buttons
-            {
-                "type": "actions",
-                "elements": []
-            }
-        ]
-
-        # Populate the actions block with options, ensuring unique action_ids
-        for idx, option in enumerate(options):
-            blocks[2]["elements"].append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": option[1]},
-                "value": option[0],
-                "action_id": f"quiz_response_{idx}"
-            })
-
-        # Debugging: Print the blocks payload
-        print(f"Sending the following blocks payload to user {user_id}: {blocks}")
-
-        try:
-            response = client.chat_postMessage(
-                channel=user_id,
-                text="Time for a quiz!",
-                blocks=blocks
+            correct_choice = random.choice(colleagues)
+            options = [correct_choice] + random.sample(
+                [col for col in colleagues if col != correct_choice], 3
             )
-            print(f"Message sent to user {user_id}, ts: {response['ts']}")
-        except SlackApiError as e:
-            print(f"Error sending message to {user_id}: {e.response['error']}")
-    conn.close()
+            random.shuffle(options)
 
+            # Store the correct answer
+            quiz_answers[user_id] = correct_choice.id
+
+            # Build interactive message
+            blocks = [
+                # Text prompt
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Who's this colleague?*"
+                    }
+                },
+                # Larger image block
+                {
+                    "type": "image",
+                    "image_url": correct_choice.image or "https://via.placeholder.com/600",
+                    "alt_text": "Image of a colleague"
+                },
+                # Action buttons
+                {
+                    "type": "actions",
+                    "elements": []
+                }
+            ]
+
+            # Populate the actions block with options
+            for idx, option in enumerate(options):
+                blocks[2]["elements"].append({
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": option.name},
+                    "value": option.id,
+                    "action_id": f"quiz_response_{idx}"
+                })
+
+            # Debugging: Print the blocks payload
+            print(f"Sending the following blocks payload to user {user_id}: {blocks}")
+
+            try:
+                response = client.chat_postMessage(
+                    channel=user_id,
+                    text="Time for a quiz!",
+                    blocks=blocks
+                )
+                print(f"Message sent to user {user_id}, ts: {response['ts']}")
+            except SlackApiError as e:
+                print(f"Error sending message to {user_id}: {e.response['error']}")
+    finally:
+        session.close()
