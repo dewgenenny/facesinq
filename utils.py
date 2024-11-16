@@ -1,31 +1,37 @@
-# utils.py
-
-from tenacity import retry, stop_after_attempt, wait_exponential
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
-from db import Session
-from models import User
 import os
 import time
+from tenacity import retry, stop_after_attempt, wait_exponential
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+from sqlalchemy.orm import sessionmaker
+from db import Session
+from models import User
+from sqlalchemy.exc import IntegrityError
 
-@retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=5, max=60))
-def fetch_and_store_users():
-    # Introduce a manual rate limiting delay between each request.
-    # Let's say we wait for 2 seconds between each request to be on the safer side.
-    RATE_LIMIT_DELAY = 2
+SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
+client = WebClient(token=SLACK_BOT_TOKEN)
 
-    # Fetch users from Slack API
-    # Initialize the Slack client
-    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-    client = WebClient(token=SLACK_BOT_TOKEN)
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=5, max=60))
+def fetch_users():
     try:
         response = client.users_list()
         if not response.get("ok"):
             raise Exception("Error in Slack API response")
+        return response.get("members", [])
+    except SlackApiError as e:
+        if e.response.status_code == 429:  # HTTP 429 Too Many Requests
+            retry_after = int(e.response.headers.get('Retry-After', 20))  # Slack tells you how long to wait
+            print(f"Rate limited. Waiting for {retry_after} seconds before retrying.")
+            time.sleep(retry_after)  # Wait for the specified duration
+            raise e  # Raise the exception to trigger a retry with tenacity
+        else:
+            # Handle other Slack API errors
+            print(f"Error fetching users from Slack: {e.response['error']}")
+            raise e
 
-        users = response.get("members", [])
+def fetch_and_store_users():
+    try:
+        users = fetch_users()
 
         # Create a session to interact with the database
         session = Session()
@@ -42,17 +48,14 @@ def fetch_and_store_users():
                     # Update the existing user
                     existing_user.name = name
                     existing_user.image = image
-                    #print(f"User {user_id} updated successfully.")
                 else:
                     # Add the new user
                     new_user = User(id=user_id, name=name, image=image, opted_in=0)
                     session.add(new_user)
-                    print(f"User {user_id} inserted successfully.")
 
                 # Commit after each operation to avoid data loss in case of failure
                 session.commit()
-                # Rate limit delay between processing each user
-                time.sleep(RATE_LIMIT_DELAY)
+
             except IntegrityError as e:
                 session.rollback()  # Rollback in case of an error
                 print(f"Failed to insert/update user {user_id}: {str(e)}")
@@ -61,16 +64,5 @@ def fetch_and_store_users():
         session.close()
 
     except SlackApiError as e:
-        if e.response['error'] == 'ratelimited':
-            # Slack rate-limited you, back off for the specific amount of time
-            retry_after = int(e.response.headers.get('Retry-After', 20))
-            print(f"Rate limited. Retrying after {retry_after} seconds.")
-            time.sleep(retry_after)
-            raise e
-        else:
-            # Handle other Slack API errors
-            print(f"Error fetching users from Slack: {e.response['error']}")
-            raise e
+        print(f"Failed to fetch users from Slack due to rate limiting: {e}")
 
-if __name__ == "__main__":
-    fetch_and_store_users()
