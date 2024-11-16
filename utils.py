@@ -32,8 +32,9 @@ def fetch_users():
 def fetch_and_store_users():
     try:
         users = fetch_users()
+        initialize_database()  # Optional: add initial setup logic if needed
 
-        # Use a context manager for the session
+    # Use a context manager for the session
         with Session() as session:
             for user in users:
                 user_id = user.get('id')
