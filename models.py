@@ -2,11 +2,12 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from db import Base
+
 
 
 
 db = SQLAlchemy()
+from db import Base
 
 class User(db.Model):
     __tablename__ = 'users'
