@@ -35,19 +35,17 @@ fetch_and_store_users()
 
 
 
-def update_opt_in_status(user_id, opt_in):
+def update_user_opt_in(user_id, opt_in):
     user = User.query.get(user_id)
     if user:
         user.opted_in = opt_in
         db.session.commit()
 
 def has_user_opted_in(user_id):
-    conn = sqlite3.connect('facesinq.db')
-    c = conn.cursor()
-    c.execute('SELECT opted_in FROM users WHERE id = ?', (user_id,))
-    result = c.fetchone()
-    conn.close()
-    return result is not None and result[0] == 1
+    user = User.query.get(user_id)
+    if user:
+        return user.opted_in is True
+    return False
 
 def update_score(user_id, points):
     conn = sqlite3.connect('facesinq.db')
@@ -258,10 +256,10 @@ def slack_commands():
 
     if command == '/facesinq':
         if text == 'opt-in':
-            update_opt_in_status(user_id, True)
+            update_user_opt_in(user_id, True)
             return jsonify(response_type='ephemeral', text='You have opted in to FaceSinq quizzes!'), 200
         elif text == 'opt-out':
-            update_opt_in_status(user_id, False)
+            update_user_opt_in(user_id, False)
             return jsonify(response_type='ephemeral', text='You have opted out of FaceSinq quizzes.'), 200
         elif text == 'quiz':
             # Check if the user has opted in
