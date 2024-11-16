@@ -3,11 +3,12 @@ from slack_sdk.errors import SlackApiError
 import sqlite3
 import os
 
-SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-client = WebClient(token=SLACK_BOT_TOKEN)
 
-def send_leaderboard():
-    conn = sqlite3.connect('quiz.db')
+
+def send_leaderboard(user_id):
+    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
+    client = WebClient(token=SLACK_BOT_TOKEN)
+    conn = sqlite3.connect('facesinq.db')
     c = conn.cursor()
     c.execute('''
         SELECT users.name, scores.score FROM scores
@@ -22,7 +23,7 @@ def send_leaderboard():
 
     try:
         client.chat_postMessage(
-            channel='#general',  # Replace with your desired channel
+            channel=user_id,  # Replace with your desired channel
             text=leaderboard_text
         )
     except SlackApiError as e:

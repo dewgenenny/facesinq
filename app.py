@@ -7,6 +7,7 @@ from slack_sdk.errors import SlackApiError
 from slack_sdk.signature import SignatureVerifier
 from db import init_db, migrate_db
 from utils import fetch_and_store_users
+from leaderboard import send_leaderboard
 app = Flask(__name__)
 
 #SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
@@ -271,6 +272,8 @@ def slack_commands():
         elif text == 'score':
             score = get_user_score(user_id)
             return jsonify(response_type='ephemeral', text=f'Your current score is {score}.'), 200
+        elif text == 'leaderboard':
+            score = send_leaderboard(user_id)
 
     else:
             return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats]"), 200
