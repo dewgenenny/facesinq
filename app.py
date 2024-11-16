@@ -42,6 +42,7 @@ with app.app_context():
 def update_user_opt_in(user_id, opt_in):
     session = Session()  # Create a new session
 
+
     try:
         user = session.query(User).filter_by(id=user_id).one_or_none()  # Query using the session
         print(f"Setting user opt-in for User ID: {user_id}")
@@ -107,50 +108,26 @@ def get_opted_in_user_count():
     conn.close()
     return count
 
+# Utility function to get correct name from user_id
+def get_user_name(user_id):
+    with Session() as session:
+        user = session.query(User).filter_by(id=user_id).one_or_none()
+        if user:
+            return user.real_name
+    return "Unknown"
+
 
 @app.route('/')
 def index():
     return 'FaceSinq is running!'
 
 @app.route('/slack/actions', methods=['POST'])
-import os
-import json
-from flask import request, jsonify
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
-from slack_sdk.signature import SignatureVerifier
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
-from db import Session
-from models import QuizSession, User  # Ensure all models are imported
-from app import app  # Assuming this is where your Flask app instance is defined
-
-# Slack Client setup
-SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
-SLACK_SIGNING_SECRET = os.getenv('SLACK_SIGNING_SECRET')
-client = WebClient(token=SLACK_BOT_TOKEN)
-signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
-
-# Utility function to update user's score
-def update_score(user_id, increment):
-    with Session() as session:
-        user = session.query(User).filter_by(id=user_id).one_or_none()
-        if user:
-            user.score = user.score + increment if user.score else increment
-            session.commit()
-
-# Utility function to get correct name from user_id
-def get_user_name(user_id):
-    with Session() as session:
-        user = session.query(User).filter_by(id=user_id).one_or_none()
-        if user:
-            return user.name
-    return "Unknown"
-
-# Flask route to handle Slack actions
-@app.route('/slack/actions', methods=['POST'])
 def slack_actions():
     # Verify the request signature to ensure it's a valid Slack request
+    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
+    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
+    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
+    client = WebClient(token=SLACK_BOT_TOKEN)
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         return jsonify({'error': 'invalid request signature'}), 403
 
@@ -241,7 +218,6 @@ def slack_actions():
             session.commit()
 
     return '', 200
-
 
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():
