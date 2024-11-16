@@ -254,7 +254,7 @@ def slack_actions():
     else:
         # Handle other actions if any
         return '', 200
-
+    return '', 200
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():
     # Read environment variables inside the function
