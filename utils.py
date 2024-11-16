@@ -1,50 +1,64 @@
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
-from slack_sdk.errors import SlackApiError
-from models import db, User
-from slack_sdk import WebClient
-import os
-from sqlalchemy.orm import session
+# utils.py
 
-# Tenacity retry decorator
-@retry(
-    stop=stop_after_attempt(5),  # Stop retrying after 5 attempts
-    wait=wait_exponential(multiplier=2, min=2, max=30),  # Exponential backoff (2s, 4s, 8s, 16s, 30s max)
-    retry=retry_if_exception(lambda e: isinstance(e, SlackApiError) and e.response['error'] == 'ratelimited')
-)
+from tenacity import retry, stop_after_attempt, wait_fixed
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import IntegrityError
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+from db import Session
+from models import User
+import os
+
+
+@retry(stop=stop_after_attempt(5), wait=wait_fixed(2))
 def fetch_and_store_users():
+    # Fetch users from Slack API
+    # Initialize the Slack client
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
     client = WebClient(token=SLACK_BOT_TOKEN)
-
     try:
         response = client.users_list()
-        with session.no_autoflush:
-            for member in response['members']:
-                if not member['is_bot'] and not member['deleted'] and member['id'] != 'USLACKBOT':
-                    user_id = member['id']
-                    name = member['real_name']
-                    image = member['profile'].get('image_192', '')
+        if not response.get("ok"):
+            raise Exception("Error in Slack API response")
 
-                    # Check if user already exists in the database
-                    existing_user = User.query.get(user_id)
+        users = response.get("members", [])
 
-                    if existing_user:
-                        # Update the existing user's information if necessary
+        # Create a session to interact with the database
+        session = Session()
 
-                        existing_user.name = name
-                        print("skipping user " + existing_user.name)
+        for user in users:
+            user_id = user.get('id')
+            name = user.get('name')
+            image = user.get('profile', {}).get('image_192', '')
 
-                        existing_user.image = image
-                    else:
-                        # Create a new user if it doesn't already exist
-                        new_user = User(id=user_id, name=name, image=image)
-                        print("adding user " + new_user.name)
+            try:
+                # Try fetching the user first
+                existing_user = session.query(User).filter_by(id=user_id).one_or_none()
+                if existing_user:
+                    # Update the existing user
+                    existing_user.name = name
+                    existing_user.image = image
+                    print(f"User {user_id} updated successfully.")
+                else:
+                    # Add the new user
+                    new_user = User(id=user_id, name=name, image=image, opted_in=0)
+                    session.add(new_user)
+                    print(f"User {user_id} inserted successfully.")
 
-                        db.session.add(new_user)
+                # Commit after each operation to avoid data loss in case of failure
+                session.commit()
 
-            # Commit changes to the database after processing all users
-            db.session.commit()
+            except IntegrityError as e:
+                session.rollback()  # Rollback in case of an error
+                print(f"Failed to insert/update user {user_id}: {str(e)}")
+
+        # Close the session after finishing all operations
+        session.close()
 
     except SlackApiError as e:
-        print(f"Error fetching users: {e.response['error']}")
-        raise  # Re-raise the exception to allow tenacity to handle retries
+        # Handle Slack API exceptions
+        print(f"Error fetching users from Slack: {e.response['error']}")
+        raise e
 
+if __name__ == "__main__":
+    fetch_and_store_users()
