@@ -6,9 +6,12 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # Use DATABASE_URL from environment if available
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///instance/facesinq.db')
+# Read the DATABASE_URL from the environment and replace `postgres://` if needed
+raw_database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/facesinq.db')
+if raw_database_url.startswith("postgres://"):
+    raw_database_url = raw_database_url.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(raw_database_url)
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

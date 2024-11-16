@@ -10,8 +10,13 @@ from models import Base
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option('sqlalchemy.url', os.environ.get('DATABASE_URL', 'sqlite:///instance/facesinq.db'))
+# Read DATABASE_URL and correct if needed
+raw_database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/facesinq.db')
+if raw_database_url.startswith("postgres://"):
+    raw_database_url = raw_database_url.replace("postgres://", "postgresql://", 1)
 
+# Set the main option in Alembic config
+config.set_main_option('sqlalchemy.url', raw_database_url)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
