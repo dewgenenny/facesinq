@@ -26,11 +26,12 @@ from leaderboard import send_leaderboard
 import sqlite3
 
 with app.app_context():
-    db.create_all()  # Create tables if they don't exist
+    db.create_all()  # Create tables if they don't exist#
+    fetch_and_store_users()
+
 # Initialize the existing database (not needed once you fully migrate to SQLAlchemy)
 #init_db()
 #migrate_db()
-fetch_and_store_users()
 
 
 
