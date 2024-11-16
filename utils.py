@@ -38,8 +38,13 @@ def fetch_and_store_users():
 
         for user in users:
             user_id = user.get('id')
-            name = user.get('name')
+            name = user.get('real_name')
             image = user.get('profile', {}).get('image_192', '')
+
+            # Skip users who are bots, deleted, or do not have a profile photo set
+            if user.get('is_bot') or user.get('deleted') or not image:
+                print(f"Skipping user {user_id} - bot user, deleted, or no profile photo set.")
+                continue
 
             try:
                 # Try fetching the user first
