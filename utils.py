@@ -29,40 +29,36 @@ def fetch_users():
             print(f"Error fetching users from Slack: {e.response['error']}")
             raise e
 
-def fetch_and_store_users():
-    try:
-        users = fetch_users()
-        initialize_database()  # Optional: add initial setup logic if needed
+def fetch_and_store_users(update_existing=False):
+    # Check if users already exist in the database
+    with Session(bind=engine) as session:
+        user_count = session.query(User).count()
 
-    # Use a context manager for the session
-        with Session() as session:
+        # If users exist and we are not updating, skip fetching
+        if user_count > 0 and not update_existing:
+            print("Users already exist in the database. Skipping fetch from Slack.")
+            return
+
+        # Otherwise, proceed with fetching users from Slack
+        try:
+            users = fetch_users()
             for user in users:
                 user_id = user.get('id')
                 name = user.get('real_name')
 
-                # Attempt to get the best available image size
                 profile = user.get('profile', {})
                 image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-                # Skip users who are bots, deleted, or do not have a profile photo set
-                if user.get('is_bot', False) is True:
-                    #print(f"Skipping user {user_id} - bot user.")
+                # Skip users who are bots or deleted
+                if user.get('is_bot', False) or user.get('deleted', False):
                     continue
 
-                if user.get('deleted', False) is True:
-                    #print(f"Skipping user {user_id} - deleted user.")
-                    continue
-
-                # Skip users who do not have a real profile photo set (i.e., they have the Gravatar placeholder)
+                # Skip users who do not have a real profile photo set (placeholder)
                 if not image or "secure.gravatar.com" in image:
-                    print(f"Skipping user {user_id} - placeholder profile photo.")
                     continue
-
-                # If a user passes all checks
-                #print(f"Processing user {user_id} - real name: {name}")
 
                 try:
-                    # Try fetching the user first
+                    # Check if user already exists
                     existing_user = session.query(User).filter_by(id=user_id).one_or_none()
                     if existing_user:
                         # Update the existing user
@@ -71,25 +67,22 @@ def fetch_and_store_users():
                     else:
                         # Add the new user
                         new_user = User(id=user_id, name=name, image=image, opted_in=0)
-                        #print(f"Adding user: {new_user.name} ({user_id}) with image URL {new_user.image}" )
                         session.add(new_user)
-
-                    # Commit after each operation to avoid data loss in case of failure
                     session.commit()
 
                 except IntegrityError as e:
-                    session.rollback()  # Rollback in case of an error
+                    session.rollback()
                     print(f"Failed to insert/update user {user_id}: {str(e)}")
-    except SlackApiError as e:
-        print(f"Failed to fetch users from Slack due to rate limiting: {e}")
 
-    except Exception as e:
-        print(f"An unexpected error occurred: {str(e)}")
+        except SlackApiError as e:
+            print(f"Failed to fetch users from Slack: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {str(e)}")
 
 if __name__ == '__main__':
     # Initialize database and create tables
     Base.metadata.create_all(bind=engine)  # This will create all tables if they don't exist
     initialize_database()  # Optional: add initial setup logic if needed
 
-    # Fetch and store Slack users
+    # Fetch and store Slack users if not already present
     fetch_and_store_users()
