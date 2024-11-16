@@ -12,6 +12,10 @@ import time
 
 @retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=5, max=60))
 def fetch_and_store_users():
+    # Introduce a manual rate limiting delay between each request.
+    # Let's say we wait for 2 seconds between each request to be on the safer side.
+    RATE_LIMIT_DELAY = 2
+
     # Fetch users from Slack API
     # Initialize the Slack client
     SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -43,11 +47,12 @@ def fetch_and_store_users():
                     # Add the new user
                     new_user = User(id=user_id, name=name, image=image, opted_in=0)
                     session.add(new_user)
-                    #print(f"User {user_id} inserted successfully.")
+                    print(f"User {user_id} inserted successfully.")
 
                 # Commit after each operation to avoid data loss in case of failure
                 session.commit()
-
+                # Rate limit delay between processing each user
+                time.sleep(RATE_LIMIT_DELAY)
             except IntegrityError as e:
                 session.rollback()  # Rollback in case of an error
                 print(f"Failed to insert/update user {user_id}: {str(e)}")
