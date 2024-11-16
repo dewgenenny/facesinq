@@ -8,9 +8,9 @@ from slack_sdk.errors import SlackApiError
 from db import Session
 from models import User
 import os
+import time
 
-
-@retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=2, max=600))
+@retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=5, max=60))
 def fetch_and_store_users():
     # Fetch users from Slack API
     # Initialize the Slack client
@@ -56,9 +56,16 @@ def fetch_and_store_users():
         session.close()
 
     except SlackApiError as e:
-        # Handle Slack API exceptions
-        print(f"Error fetching users from Slack: {e.response['error']}")
-        raise e
+        if e.response['error'] == 'ratelimited':
+            # Slack rate-limited you, back off for the specific amount of time
+            retry_after = int(e.response.headers.get('Retry-After', 20))
+            print(f"Rate limited. Retrying after {retry_after} seconds.")
+            time.sleep(retry_after)
+            raise e
+        else:
+            # Handle other Slack API errors
+            print(f"Error fetching users from Slack: {e.response['error']}")
+            raise e
 
 if __name__ == "__main__":
     fetch_and_store_users()
