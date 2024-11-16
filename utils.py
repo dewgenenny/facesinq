@@ -53,8 +53,9 @@ def fetch_and_store_users():
                     #print(f"Skipping user {user_id} - deleted user.")
                     continue
 
-                if not image:
-                    #print(f"Skipping user {user_id} - no profile photo set.")
+                # Skip users who do not have a real profile photo set (i.e., they have the Gravatar placeholder)
+                if not image or "secure.gravatar.com" in image:
+                    print(f"Skipping user {user_id} - placeholder profile photo.")
                     continue
 
                 # If a user passes all checks
@@ -70,7 +71,7 @@ def fetch_and_store_users():
                     else:
                         # Add the new user
                         new_user = User(id=user_id, name=name, image=image, opted_in=0)
-                        #print(f"Adding user: {new_user.name} ({user_id})")
+                        #print(f"Adding user: {new_user.name} ({user_id}) with image URL {new_user.image}" )
                         session.add(new_user)
 
                     # Commit after each operation to avoid data loss in case of failure
