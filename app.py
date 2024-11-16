@@ -3,8 +3,8 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
 import json
-from models import db, User, Score
-from db import Session  # Import the session factory created in db.py
+from db import engine, Session, initialize_database  # Import the engine and initialization function
+from models import User, Score, QuizSession , Base # Ensure models are imported so they are registered
 
 app = Flask(__name__)
 
@@ -13,7 +13,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///facesinq.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 #db = SQLAlchemy(app)
-db.init_app(app)
+#db.init_app(app)
 
 # Import the rest of your modules
 #from db import init_db, migrate_db
@@ -28,7 +28,8 @@ from leaderboard import send_leaderboard
 import sqlite3
 
 with app.app_context():
-    db.create_all()  # Create tables if they don't exist#
+    Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
+
     fetch_and_store_users()
 
 # Initialize the existing database (not needed once you fully migrate to SQLAlchemy)
@@ -352,7 +353,7 @@ if __name__ == '__main__':
     from quiz_app import send_quiz
     from apscheduler.schedulers.background import BackgroundScheduler
     with app.app_context():
-        db.create_all()  # Create tables if they don't exist
+        Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
     #init_db()
     #migrate_db()
     fetch_and_store_users()

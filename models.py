@@ -1,32 +1,28 @@
-# models.py
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-
-
-db = SQLAlchemy()
 from db import Base
 
-class User(db.Model):
+class User(Base):
     __tablename__ = 'users'
-    id = db.Column(db.String, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    image = db.Column(db.String)
-    opted_in = db.Column(db.Boolean, default=False)
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    image = Column(String)
+    opted_in = Column(Boolean, default=False)
+
+    scores = relationship('Score', back_populates='user')
+    quiz_sessions = relationship("QuizSession", back_populates="user")
 
     def __repr__(self):
         return f"<User {self.name}>"
 
-class Score(db.Model):
+class Score(Base):
     __tablename__ = 'scores'
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), primary_key=True)
-    score = db.Column(db.Integer, default=0)
-    user = db.relationship('User', back_populates='scores')
+    user_id = Column(String, ForeignKey('users.id'), primary_key=True)
+    score = Column(Integer, default=0)
+    user = relationship('User', back_populates='scores')
 
     def __repr__(self):
         return f"<Score {self.user_id}: {self.score}>"
-
-User.scores = db.relationship('Score', back_populates='user')
 
 class QuizSession(Base):
     __tablename__ = 'quiz_sessions'
@@ -37,4 +33,6 @@ class QuizSession(Base):
 
     user = relationship("User", back_populates="quiz_sessions")
 
-User.quiz_sessions = relationship("QuizSession", order_by=QuizSession.id, back_populates="user")
+# # Define relationships after all classes are defined
+# User.scores = db.relationship('Score', back_populates='user')
+# User.quiz_sessions = db.relationship("QuizSession", back_populates="user")
