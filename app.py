@@ -113,16 +113,48 @@ def index():
     return 'FaceSinq is running!'
 
 @app.route('/slack/actions', methods=['POST'])
-def slack_actions():
-    # Verify the request signature
-    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
-    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-    client = WebClient(token=SLACK_BOT_TOKEN)
+import os
+import json
+from flask import request, jsonify
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+from slack_sdk.signature import SignatureVerifier
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import IntegrityError
+from db import Session
+from models import QuizSession, User  # Ensure all models are imported
+from app import app  # Assuming this is where your Flask app instance is defined
 
+# Slack Client setup
+SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
+SLACK_SIGNING_SECRET = os.getenv('SLACK_SIGNING_SECRET')
+client = WebClient(token=SLACK_BOT_TOKEN)
+signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
+
+# Utility function to update user's score
+def update_score(user_id, increment):
+    with Session() as session:
+        user = session.query(User).filter_by(id=user_id).one_or_none()
+        if user:
+            user.score = user.score + increment if user.score else increment
+            session.commit()
+
+# Utility function to get correct name from user_id
+def get_user_name(user_id):
+    with Session() as session:
+        user = session.query(User).filter_by(id=user_id).one_or_none()
+        if user:
+            return user.name
+    return "Unknown"
+
+# Flask route to handle Slack actions
+@app.route('/slack/actions', methods=['POST'])
+def slack_actions():
+    # Verify the request signature to ensure it's a valid Slack request
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         return jsonify({'error': 'invalid request signature'}), 403
 
+    # Parse the payload
     payload = json.loads(request.form.get('payload'))
     action = payload['actions'][0]
     action_id = action['action_id']
@@ -132,135 +164,81 @@ def slack_actions():
     channel_id = payload['channel']['id']
 
     if action_id.startswith('quiz_response_'):
-        if action_id.startswith('quiz_response_'):
-            # Use a context manager for the session
-            with Session() as session:
-                # Retrieve correct answer from database
-                quiz_session = session.query(QuizSession).filter_by(user_id=user_id).one_or_none()
+        # Fetch the current quiz session
+        with Session() as session:
+            quiz_session = session.query(QuizSession).filter_by(user_id=user_id).one_or_none()
 
-                if not quiz_session or not quiz_session.correct_user_id:
-                    client.chat_postMessage(channel=user_id, text="Sorry, your quiz session has expired.")
-                    return '', 200
+            if not quiz_session or not quiz_session.correct_user_id:
+                client.chat_postMessage(channel=user_id, text="Sorry, your quiz session has expired.")
+                return '', 200
 
-                correct_user_id = quiz_session.correct_user_id
+            correct_user_id = quiz_session.correct_user_id
 
-        # Determine if the user's selection is correct
-        is_correct = selected_user_id == correct_user_id
+            # Determine if the user's selection is correct
+            is_correct = selected_user_id == correct_user_id
 
-        # Update the user's score if correct
-        if is_correct:
-            update_score(user_id, 1)
+            # Update the user's score if correct
+            if is_correct:
+                update_score(user_id, 1)
 
-        # Prepare to update the original message
-        original_blocks = payload['message']['blocks']
-        selected_option_index = int(action_id.split('_')[-1])
+            # Prepare to update the original message
+            original_blocks = payload['message']['blocks']
+            selected_option_index = int(action_id.split('_')[-1])
 
-        # Find the action block containing the answer buttons
-        answer_action_block = None
-        for block in original_blocks:
-            if block.get('block_id') == 'answer_buttons':
-                answer_action_block = block
-                break
+            # Find the action block containing the answer buttons
+            answer_action_block = next(
+                (block for block in original_blocks if block.get('block_id') == 'answer_buttons'),
+                None
+            )
 
-        if not answer_action_block:
-            print("Answer action block not found.")
-            return '', 200
+            if not answer_action_block:
+                print("Answer action block not found.")
+                return '', 200
 
-        # Modify the action block to reflect correct and incorrect choices
-        for idx, element in enumerate(answer_action_block['elements']):
-            # Assign a new action_id to disable further interaction
-            element['action_id'] = f"disabled_{idx}"  # Set a unique action_id
-            element['text']['emoji'] = True  # Ensure 'emoji' field is set
+            # Modify the action block to reflect correct and incorrect choices
+            for idx, element in enumerate(answer_action_block['elements']):
+                # Assign a new action_id to disable further interaction
+                element['action_id'] = f"disabled_{idx}"
+                element['text']['emoji'] = True  # Ensure 'emoji' field is set
 
-            # Style the buttons based on correctness
-            if element['value'] == correct_user_id:
-                element['style'] = 'primary'  # Correct answer in green
-            elif element['value'] == selected_user_id:
-                element['style'] = 'danger'   # User's incorrect selection in red
+                # Style the buttons based on correctness
+                if element['value'] == correct_user_id:
+                    element['style'] = 'primary'  # Correct answer in green
+                elif element['value'] == selected_user_id:
+                    element['style'] = 'danger'   # User's incorrect selection in red
+                else:
+                    element.pop('style', None)    # Remove 'style' if any
+
+            # Add feedback text at the top
+            if is_correct:
+                feedback_text = "🎉 Correct! You really know your colleagues!"
             else:
-                element.pop('style', None)    # Remove 'style' if any
-        #print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
+                correct_name = get_user_name(correct_user_id)
+                feedback_text = f"❌ Nope! This is your amazing colleague called *{correct_name}*."
 
+            # Insert feedback text at the top of the blocks
+            original_blocks.insert(0, {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": feedback_text
+                }
+            })
 
-        # Add feedback text at the top
-        if is_correct:
-            feedback_text = "🎉 Correct! You really know your colleagues!"
-        else:
-            # Get the name of the correct colleague
-            conn = sqlite3.connect('facesinq.db')
-            c = conn.cursor()
-            c.execute('SELECT name FROM users WHERE id = ?', (correct_user_id,))
-            correct_name_result = c.fetchone()
-            conn.close()
-            correct_name = correct_name_result[0] if correct_name_result else "Unknown"
-            feedback_text = f"❌ Nope! This is your amazing colleague called *{correct_name}*."
+            # Update the original message with feedback and disabled buttons
+            try:
+                client.chat_update(
+                    channel=channel_id,
+                    ts=message_ts,
+                    blocks=original_blocks,
+                    text=feedback_text
+                )
+            except SlackApiError as e:
+                print(f"Error updating message: {e.response['error']}")
 
-        # Insert feedback text at the top of the blocks
-        original_blocks.insert(0, {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": feedback_text
-            }
-        })
-        #print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
-        # Update the original message
-        try:
-            client.chat_update(
-                channel=channel_id,
-                ts=message_ts,
-                blocks=original_blocks,
-                text=feedback_text  # Add this line
-            )
-        except SlackApiError as e:
-            print(f"Error updating message: {e.response['error']}")
-
-        # Remove the stored answer
-        conn = sqlite3.connect('facesinq.db')
-        c = conn.cursor()
-        c.execute('DELETE FROM quiz_sessions WHERE user_id = ?', (user_id,))
-        conn.commit()
-        conn.close()
-
-    elif action_id == 'next_quiz':
-        # Handle the "Next Quiz" button click
-        send_quiz_to_user(user_id)
-
-        # Modify the original message to disable the "Next Quiz" button
-        original_blocks = payload['message']['blocks']
-
-        # Find the action block containing the "Next Quiz" button
-        next_quiz_block = None
-        for block in original_blocks:
-            if block.get('block_id') == 'next_quiz_block':
-                next_quiz_block = block
-                break
-
-        if next_quiz_block:
-            for element in next_quiz_block['elements']:
-                if element.get('action_id') == 'next_quiz':
-                    element['action_id'] = 'disabled_next_quiz'
-                    element['text']['text'] = "Next Quiz Sent"
-                    element['style'] = 'primary'
-                    break
-        else:
-            print("Next Quiz action block not found.")
-
-
-        # Update the message
-        try:
-            client.chat_update(
-                channel=channel_id,
-                ts=message_ts,
-                blocks=original_blocks,
-                text="Here's your next quiz!"
-            )
-        except SlackApiError as e:
-            print(f"Error updating message: {e.response['error']}")
-
-    else:
-        # Handle other actions if any
-        pass
+            # Remove the stored answer (delete the quiz session)
+            session.query(QuizSession).filter_by(user_id=user_id).delete()
+            session.commit()
 
     return '', 200
 
