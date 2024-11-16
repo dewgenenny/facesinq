@@ -3,7 +3,7 @@ import random
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from sqlalchemy.orm import Session
-from db import SessionLocal
+from db import Session
 from models import User, QuizSession
 
 
@@ -20,7 +20,7 @@ def send_quiz_to_user(user_id):
     client = WebClient(token=SLACK_BOT_TOKEN)
 
     # Set up the SQLAlchemy session
-    session = SessionLocal()
+    session = Session()
 
     try:
         # Get all colleagues, excluding the user themselves
