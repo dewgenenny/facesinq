@@ -1,40 +1,45 @@
-from flask import Flask, request, jsonify
-import sqlite3
-import json
+# app.py
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 import os
+import json
+from models import db, User, Score
+app = Flask(__name__)
+
+# Configuration for SQLAlchemy
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///facesinq.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+#db = SQLAlchemy(app)
+db.init_app(app)
+
+# Import the rest of your modules
+from db import init_db, migrate_db
+from utils import fetch_and_store_users
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.signature import SignatureVerifier
-from db import init_db, migrate_db
-from utils import fetch_and_store_users
-from leaderboard import send_leaderboard
-app = Flask(__name__)
-
-#SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-#signature_verifier = SignatureVerifier(SLACK_SIGNING_SECRET)
-
-# Import quiz_answers from quiz_app
 from quiz_app import send_quiz_to_user
-from leaderboard import send_leaderboard  # Import send_leaderboard
+from leaderboard import send_leaderboard
 
 
+import sqlite3
 
-init_db()
-migrate_db()
+with app.app_context():
+    db.create_all()  # Create tables if they don't exist
+# Initialize the existing database (not needed once you fully migrate to SQLAlchemy)
+#init_db()
+#migrate_db()
 fetch_and_store_users()
 
 
 
 
-def update_opt_in_status(user_id, opt_in):
-    conn = sqlite3.connect('facesinq.db')
-    c = conn.cursor()
-    opted_in_value = 1 if opt_in else 0
-
-    # Update the user's opt-in status
-    c.execute('UPDATE users SET opted_in = ? WHERE id = ?', (opted_in_value, user_id))
-    conn.commit()
-    conn.close()
+def update_user_opt_in(user_id, opt_in):
+    user = User.query.get(user_id)
+    if user:
+        user.opted_in = opt_in
+        db.session.commit()
 
 def has_user_opted_in(user_id):
     conn = sqlite3.connect('facesinq.db')
@@ -322,15 +327,16 @@ if __name__ == '__main__':
     from utils import fetch_and_store_users
     from quiz_app import send_quiz
     from apscheduler.schedulers.background import BackgroundScheduler
-
-    init_db()
-    migrate_db()
+    with app.app_context():
+        db.create_all()  # Create tables if they don't exist
+    #init_db()
+    #migrate_db()
     fetch_and_store_users()
 
     # Schedule the quiz
     scheduler = BackgroundScheduler()
     scheduler.add_job(send_quiz, 'interval', minutes=60)  # Adjust frequency
-    scheduler.add_job(send_leaderboard, 'cron', day_of_week='fri', hour=17)  # Adjust timing as needed
+    #scheduler.add_job(send_leaderboard, 'cron', day_of_week='fri', hour=17)  # Adjust timing as needed
     scheduler.start()
 
     port = int(os.environ.get('PORT', 3000))
