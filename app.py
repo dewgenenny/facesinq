@@ -35,7 +35,7 @@ fetch_and_store_users()
 
 
 
-def update_user_opt_in(user_id, opt_in):
+def update_opt_in_status(user_id, opt_in):
     user = User.query.get(user_id)
     if user:
         user.opted_in = opt_in
