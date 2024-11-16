@@ -3,6 +3,7 @@ from slack_sdk.errors import SlackApiError
 from models import db, User
 from slack_sdk import WebClient
 import os
+from sqlalchemy.orm import session
 
 # Tenacity retry decorator
 @retry(
@@ -16,27 +17,34 @@ def fetch_and_store_users():
 
     try:
         response = client.users_list()
-        for member in response['members']:
-            if not member['is_bot'] and not member['deleted']:
-                user_id = member['id']
-                name = member['real_name']
-                image = member['profile'].get('image_192', '')
+        with session.no_autoflush:
+            for member in response['members']:
+                if not member['is_bot'] and not member['deleted'] and member['id'] != 'USLACKBOT':
+                    user_id = member['id']
+                    name = member['real_name']
+                    image = member['profile'].get('image_192', '')
 
-                # Check if user already exists in the database
-                existing_user = User.query.get(user_id)
+                    # Check if user already exists in the database
+                    existing_user = User.query.get(user_id)
 
-                if existing_user:
-                    # Update the existing user's information if necessary
-                    existing_user.name = name
-                    existing_user.image = image
-                else:
-                    # Create a new user if it doesn't already exist
-                    new_user = User(id=user_id, name=name, image=image)
-                    db.session.add(new_user)
+                    if existing_user:
+                        # Update the existing user's information if necessary
 
-        # Commit changes to the database after processing all users
-        db.session.commit()
+                        existing_user.name = name
+                        print("skipping user " + existing_user.name)
+
+                        existing_user.image = image
+                    else:
+                        # Create a new user if it doesn't already exist
+                        new_user = User(id=user_id, name=name, image=image)
+                        print("adding user " + new_user.name)
+
+                        db.session.add(new_user)
+
+            # Commit changes to the database after processing all users
+            db.session.commit()
 
     except SlackApiError as e:
         print(f"Error fetching users: {e.response['error']}")
         raise  # Re-raise the exception to allow tenacity to handle retries
+
