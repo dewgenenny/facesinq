@@ -230,7 +230,7 @@ def slack_actions():
             # Handle other actions if any
             pass
 
-        return '', 200
+    return '', 200
 
 
 @app.route('/slack/commands', methods=['POST'])
