@@ -6,6 +6,7 @@ import os
 
 # Load encryption key from environment variable
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
+
 fernet = Fernet(ENCRYPTION_KEY)
 
 class User(Base):
