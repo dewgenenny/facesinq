@@ -365,8 +365,9 @@ if __name__ == '__main__':
 
     # Schedule the quiz
     scheduler = BackgroundScheduler()
-    scheduler.add_job(send_quiz, 'interval', minutes=60)  # Adjust frequency
+    #scheduler.add_job(send_quiz, 'interval', minutes=60)  # Adjust frequency
     #scheduler.add_job(send_leaderboard, 'cron', day_of_week='fri', hour=17)  # Adjust timing as needed
+    scheduler.add_job(fetch_and_store_users, 'interval', hours=2, kwargs={'update_existing': True})
     scheduler.start()
 
     port = int(os.environ.get('PORT', 3000))
