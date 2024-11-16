@@ -10,7 +10,7 @@ from models import User
 import os
 
 
-@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30))
+@retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=2, max=600))
 def fetch_and_store_users():
     # Fetch users from Slack API
     # Initialize the Slack client
