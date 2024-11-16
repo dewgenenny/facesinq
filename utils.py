@@ -38,12 +38,26 @@ def fetch_and_store_users():
             for user in users:
                 user_id = user.get('id')
                 name = user.get('real_name')
-                image = user.get('profile', {}).get('image_512', '')
+
+                # Attempt to get the best available image size
+                profile = user.get('profile', {})
+                image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
                 # Skip users who are bots, deleted, or do not have a profile photo set
-                if user.get('is_bot') or user.get('deleted') or not image:
-                    print(f"Skipping user {user_id} - bot user, deleted, or no profile photo set.")
+                if user.get('is_bot', False) is True:
+                    print(f"Skipping user {user_id} - bot user.")
                     continue
+
+                if user.get('deleted', False) is True:
+                    print(f"Skipping user {user_id} - deleted user.")
+                    continue
+
+                if not image:
+                    print(f"Skipping user {user_id} - no profile photo set.")
+                    continue
+
+                # If a user passes all checks
+                print(f"Processing user {user_id} - real name: {name}")
 
                 try:
                     # Try fetching the user first
@@ -54,9 +68,8 @@ def fetch_and_store_users():
                         existing_user.image = image
                     else:
                         # Add the new user
-
                         new_user = User(id=user_id, name=name, image=image, opted_in=0)
-                        print("adding + " + new_user.name)
+                        print(f"Adding user: {new_user.name} ({user_id})")
                         session.add(new_user)
 
                     # Commit after each operation to avoid data loss in case of failure
@@ -65,7 +78,6 @@ def fetch_and_store_users():
                 except IntegrityError as e:
                     session.rollback()  # Rollback in case of an error
                     print(f"Failed to insert/update user {user_id}: {str(e)}")
-
     except SlackApiError as e:
         print(f"Failed to fetch users from Slack due to rate limiting: {e}")
 
