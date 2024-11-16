@@ -124,6 +124,17 @@ def slack_actions():
         original_blocks = payload['message']['blocks']
         selected_option_index = int(action_id.split('_')[-1])
 
+        # Find the action block containing the answer buttons
+        answer_action_block = None
+        for block in original_blocks:
+            if block.get('block_id') == 'answer_buttons':
+                answer_action_block = block
+                break
+
+        if not answer_action_block:
+            print("Answer action block not found.")
+            return '', 200
+
         # Modify the action block to reflect correct and incorrect choices
         action_block = original_blocks[-1]
         for idx, element in enumerate(action_block['elements']):
@@ -139,7 +150,7 @@ def slack_actions():
                 element['style'] = 'danger'   # User's incorrect selection in red
             else:
                 element.pop('style', None)    # Remove 'style' if any
-        print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
+        #print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
 
 
         # Add feedback text at the top
@@ -163,7 +174,7 @@ def slack_actions():
                 "text": feedback_text
             }
         })
-        print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
+        #print(f"Updating message with blocks: {json.dumps(original_blocks, indent=2)}")
         # Update the original message
         try:
             client.chat_update(
@@ -181,6 +192,7 @@ def slack_actions():
         c.execute('DELETE FROM quiz_sessions WHERE user_id = ?', (user_id,))
         conn.commit()
         conn.close()
+
     elif action_id == 'next_quiz':
         # Handle the "Next Quiz" button click
         send_quiz_to_user(user_id)
@@ -188,16 +200,20 @@ def slack_actions():
         # Modify the original message to disable the "Next Quiz" button
         original_blocks = payload['message']['blocks']
 
-        # Find the actions block containing the "Next Quiz" button
+        # Find the action block containing the "Next Quiz" button
         for block in original_blocks:
-            if block['type'] == 'actions':
-                for element in block['elements']:
-                    if element.get('action_id') == 'next_quiz':
-                        # Disable the button
-                        element['action_id'] = 'disabled_next_quiz'
-                        element['text']['text'] = "Next Quiz Sent"
-                        element['style'] = 'primary'
-                        break
+            if block.get('block_id') == 'next_quiz_block':
+                next_quiz_block = block
+                break
+
+        if next_quiz_block:
+            for element in next_quiz_block['elements']:
+                if element.get('action_id') == 'next_quiz':
+                    # Disable the button
+                    element['action_id'] = 'disabled_next_quiz'
+                    element['text']['text'] = "Next Quiz Sent"
+                    element['style'] = 'primary'
+                    break
 
         # Update the message
         try:
@@ -210,11 +226,11 @@ def slack_actions():
         except SlackApiError as e:
             print(f"Error updating message: {e.response['error']}")
 
-    else:
-        # Handle other actions if any
-        pass
+        else:
+            # Handle other actions if any
+            pass
 
-    return '', 200
+        return '', 200
 
 
 @app.route('/slack/commands', methods=['POST'])

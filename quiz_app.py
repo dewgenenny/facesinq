@@ -53,6 +53,7 @@ def send_quiz_to_user(user_id):
     conn.execute('REPLACE INTO quiz_sessions (user_id, correct_user_id) VALUES (?, ?)', (user_id, correct_choice[0]))
     conn.commit()
     # Build interactive message
+    # Build interactive message
     blocks = [
         # Text prompt
         {
@@ -68,9 +69,10 @@ def send_quiz_to_user(user_id):
             "image_url": correct_choice[2] or "https://via.placeholder.com/600",
             "alt_text": "Image of a colleague"
         },
-        # Action buttons
+        # Answer buttons with a block_id
         {
             "type": "actions",
+            "block_id": "answer_buttons",  # Assign a block_id
             "elements": []
         }
     ]
@@ -84,9 +86,10 @@ def send_quiz_to_user(user_id):
             "action_id": f"quiz_response_{idx}"
         })
 
-        # Add the "Next Quiz" button in a new actions block
+    # Add the "Next Quiz" button in a new actions block with its own block_id
     blocks.append({
         "type": "actions",
+        "block_id": "next_quiz_block",  # Assign a block_id
         "elements": [
             {
                 "type": "button",
