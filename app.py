@@ -4,6 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 import json
 from models import db, User, Score
+from db import Session  # Import the session factory created in db.py
+
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
@@ -37,12 +39,26 @@ with app.app_context():
 
 
 def update_user_opt_in(user_id, opt_in):
-    user = User.query.get(user_id)
-    print("setting user opt in for>")
-    print(user)
-    if user:
-        user.opted_in = opt_in
-        db.session.commit()
+    session = Session()  # Create a new session
+
+    try:
+        user = session.query(User).filter_by(id=user_id).one_or_none()  # Query using the session
+        print(f"Setting user opt-in for User ID: {user_id}")
+
+        if user:
+            user.opted_in = opt_in
+            session.commit()
+            print(f"User {user_id} opt-in updated to {opt_in}")
+        else:
+            print(f"No user found with User ID: {user_id}")
+
+    except Exception as e:
+        print(f"Error updating user opt-in for User ID: {user_id}, Error: {str(e)}")
+        session.rollback()  # Rollback in case of error
+
+    finally:
+        session.close()  # Close the session
+
 
 def has_user_opted_in(user_id):
 
