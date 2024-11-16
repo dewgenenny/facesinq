@@ -14,7 +14,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
 # Import the rest of your modules
-from db import init_db, migrate_db
+#from db import init_db, migrate_db
 from utils import fetch_and_store_users
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -327,7 +327,6 @@ def slack_events():
 
 if __name__ == '__main__':
 
-    from db import init_db, migrate_db
     from utils import fetch_and_store_users
     from quiz_app import send_quiz
     from apscheduler.schedulers.background import BackgroundScheduler
