@@ -136,17 +136,15 @@ def slack_actions():
             return '', 200
 
         # Modify the action block to reflect correct and incorrect choices
-        action_block = original_blocks[-1]
-        for idx, element in enumerate(action_block['elements']):
+        for idx, element in enumerate(answer_action_block['elements']):
             # Assign a new action_id to disable further interaction
             element['action_id'] = f"disabled_{idx}"  # Set a unique action_id
-            element['value'] = element['value']  # Ensure 'value' remains the same
             element['text']['emoji'] = True  # Ensure 'emoji' field is set
 
             # Style the buttons based on correctness
             if element['value'] == correct_user_id:
                 element['style'] = 'primary'  # Correct answer in green
-            elif idx == selected_option_index:
+            elif element['value'] == selected_user_id:
                 element['style'] = 'danger'   # User's incorrect selection in red
             else:
                 element.pop('style', None)    # Remove 'style' if any
@@ -201,6 +199,7 @@ def slack_actions():
         original_blocks = payload['message']['blocks']
 
         # Find the action block containing the "Next Quiz" button
+        next_quiz_block = None
         for block in original_blocks:
             if block.get('block_id') == 'next_quiz_block':
                 next_quiz_block = block
@@ -209,11 +208,13 @@ def slack_actions():
         if next_quiz_block:
             for element in next_quiz_block['elements']:
                 if element.get('action_id') == 'next_quiz':
-                    # Disable the button
                     element['action_id'] = 'disabled_next_quiz'
                     element['text']['text'] = "Next Quiz Sent"
                     element['style'] = 'primary'
                     break
+        else:
+            print("Next Quiz action block not found.")
+
 
         # Update the message
         try:
@@ -226,9 +227,9 @@ def slack_actions():
         except SlackApiError as e:
             print(f"Error updating message: {e.response['error']}")
 
-        else:
-            # Handle other actions if any
-            pass
+    else:
+        # Handle other actions if any
+        pass
 
     return '', 200
 
