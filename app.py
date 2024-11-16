@@ -113,7 +113,7 @@ def get_user_name(user_id):
     with Session() as session:
         user = session.query(User).filter_by(id=user_id).one_or_none()
         if user:
-            return user.real_name
+            return user.name
     return "Unknown"
 
 
