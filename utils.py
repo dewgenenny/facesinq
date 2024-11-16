@@ -46,19 +46,19 @@ def fetch_and_store_users():
 
                 # Skip users who are bots, deleted, or do not have a profile photo set
                 if user.get('is_bot', False) is True:
-                    print(f"Skipping user {user_id} - bot user.")
+                    #print(f"Skipping user {user_id} - bot user.")
                     continue
 
                 if user.get('deleted', False) is True:
-                    print(f"Skipping user {user_id} - deleted user.")
+                    #print(f"Skipping user {user_id} - deleted user.")
                     continue
 
                 if not image:
-                    print(f"Skipping user {user_id} - no profile photo set.")
+                    #print(f"Skipping user {user_id} - no profile photo set.")
                     continue
 
                 # If a user passes all checks
-                print(f"Processing user {user_id} - real name: {name}")
+                #print(f"Processing user {user_id} - real name: {name}")
 
                 try:
                     # Try fetching the user first
@@ -70,7 +70,7 @@ def fetch_and_store_users():
                     else:
                         # Add the new user
                         new_user = User(id=user_id, name=name, image=image, opted_in=0)
-                        print(f"Adding user: {new_user.name} ({user_id})")
+                        #print(f"Adding user: {new_user.name} ({user_id})")
                         session.add(new_user)
 
                     # Commit after each operation to avoid data loss in case of failure
