@@ -37,12 +37,17 @@ fetch_and_store_users()
 
 def update_user_opt_in(user_id, opt_in):
     user = User.query.get(user_id)
+    print("setting user opt in for>")
+    print(user)
     if user:
         user.opted_in = opt_in
         db.session.commit()
 
 def has_user_opted_in(user_id):
+
     user = User.query.get(user_id)
+    print("getting user opt in for>")
+    print(user)
     if user:
         return user.opted_in is True
     return False
