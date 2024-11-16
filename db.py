@@ -3,8 +3,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
 
-DATABASE_URL = "sqlite:///facesinq.db"
+# Use DATABASE_URL from environment if available
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///instance/facesinq.db')
 
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
