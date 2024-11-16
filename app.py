@@ -29,7 +29,7 @@ import sqlite3
 
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
-
+    initialize_database()  # Optional: add initial setup logic if needed
     fetch_and_store_users()
 
 # Initialize the existing database (not needed once you fully migrate to SQLAlchemy)
