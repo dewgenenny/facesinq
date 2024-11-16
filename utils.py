@@ -1,6 +1,6 @@
 # utils.py
 
-from tenacity import retry, stop_after_attempt, wait_fixed
+from tenacity import retry, stop_after_attempt, wait_exponential
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from slack_sdk import WebClient
@@ -10,7 +10,7 @@ from models import User
 import os
 
 
-@retry(stop=stop_after_attempt(5), wait=wait_fixed(2))
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30))
 def fetch_and_store_users():
     # Fetch users from Slack API
     # Initialize the Slack client
