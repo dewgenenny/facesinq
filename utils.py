@@ -38,12 +38,12 @@ def fetch_and_store_users():
                     # Update the existing user
                     existing_user.name = name
                     existing_user.image = image
-                    print(f"User {user_id} updated successfully.")
+                    #print(f"User {user_id} updated successfully.")
                 else:
                     # Add the new user
                     new_user = User(id=user_id, name=name, image=image, opted_in=0)
                     session.add(new_user)
-                    print(f"User {user_id} inserted successfully.")
+                    #print(f"User {user_id} inserted successfully.")
 
                 # Commit after each operation to avoid data loss in case of failure
                 session.commit()

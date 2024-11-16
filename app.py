@@ -61,13 +61,18 @@ def update_user_opt_in(user_id, opt_in):
 
 
 def has_user_opted_in(user_id):
-
-    user = User.query.get(user_id)
-    print("getting user opt in for>")
-    print(user)
-    if user:
-        return user.opted_in is True
-    return False
+    session = Session()  # Create a new session
+    try:
+        user = session.query(User).filter_by(id=user_id).one_or_none()  # Query using the session
+        print(f"Getting user opt-in for User ID: {user_id}")
+        if user:
+            return user.opted_in is True
+        return False
+    except Exception as e:
+        print(f"Error fetching user opt-in for User ID: {user_id}, Error: {str(e)}")
+        return False
+    finally:
+        session.close()  # Close the session
 
 def update_score(user_id, points):
     conn = sqlite3.connect('facesinq.db')
