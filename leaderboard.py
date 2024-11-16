@@ -3,7 +3,7 @@ from slack_sdk.errors import SlackApiError
 import sqlite3
 import os
 from models import User, Score
-from db import  Session,   # Import the engine and initialization function
+from db import  Session
 
 
 def send_leaderboard(user_id):
