@@ -132,18 +132,17 @@ def slack_actions():
     channel_id = payload['channel']['id']
 
     if action_id.startswith('quiz_response_'):
-        # Retrieve correct answer from database
-        conn = sqlite3.connect('facesinq.db')
-        c = conn.cursor()
-        c.execute('SELECT correct_user_id FROM quiz_sessions WHERE user_id = ?', (user_id,))
-        result = c.fetchone()
-        if not result or not result[0]:
-            conn.close()
-            client.chat_postMessage(channel=user_id, text="Sorry, your quiz session has expired.")
-            return '', 200
+        if action_id.startswith('quiz_response_'):
+            # Use a context manager for the session
+            with Session() as session:
+                # Retrieve correct answer from database
+                quiz_session = session.query(QuizSession).filter_by(user_id=user_id).one_or_none()
 
-        correct_user_id = result[0]
-        conn.close()
+                if not quiz_session or not quiz_session.correct_user_id:
+                    client.chat_postMessage(channel=user_id, text="Sorry, your quiz session has expired.")
+                    return '', 200
+
+                correct_user_id = quiz_session.correct_user_id
 
         # Determine if the user's selection is correct
         is_correct = selected_user_id == correct_user_id
