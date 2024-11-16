@@ -9,7 +9,7 @@ from models import User, Score, QuizSession , Base # Ensure models are imported 
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///facesinq.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/facesinq.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 #db = SQLAlchemy(app)
