@@ -25,6 +25,7 @@ def send_quiz_to_user(user_id):
     try:
         # Get all colleagues, excluding the user themselves
         colleagues = session.query(User).filter(User.id != user_id).all()
+        print(colleagues)
 
         # Check if the user already has an active quiz session
         existing_quiz = session.query(QuizSession).filter(QuizSession.user_id == user_id).first()
