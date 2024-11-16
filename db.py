@@ -10,8 +10,6 @@ engine = create_engine(DATABASE_URL)
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Import your models here to ensure they are created
-from models import User, QuizSession  # Assuming QuizSession was defined
 
 def initialize_database():
     Base.metadata.create_all(bind=engine)
