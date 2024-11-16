@@ -1,10 +1,21 @@
+# db.py
+
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "sqlite:///facesinq.db"  # You can change this URL to point to your database
+DATABASE_URL = "sqlite:///facesinq.db"
 
-# Creating the engine and session
-engine = create_engine(DATABASE_URL, echo=True)
-Session = sessionmaker(bind=engine)
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-# Example usage
+# Import your models here to ensure they are created
+from models import User, QuizSession  # Assuming QuizSession was defined
+
+def initialize_database():
+    Base.metadata.create_all(bind=engine)
+
+# Run this function if you want to manually create tables
+if __name__ == "__main__":
+    initialize_database()

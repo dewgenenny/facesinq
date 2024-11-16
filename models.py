@@ -1,5 +1,10 @@
 # models.py
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
+from db import Base
+
+
 
 db = SQLAlchemy()
 
@@ -23,3 +28,14 @@ class Score(db.Model):
         return f"<Score {self.user_id}: {self.score}>"
 
 User.scores = db.relationship('Score', back_populates='user')
+
+class QuizSession(Base):
+    __tablename__ = 'quiz_sessions'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    correct_user_id = Column(String, nullable=False)
+
+    user = relationship("User", back_populates="quiz_sessions")
+
+User.quiz_sessions = relationship("QuizSession", order_by=QuizSession.id, back_populates="user")
