@@ -27,6 +27,7 @@ def get_slack_client(team_id=None):
     """
     if team_id:
         access_token = get_workspace_access_token(team_id)
+        print("Client established for " + team_id)
         return WebClient(token=access_token)
     return WebClient(token=os.environ.get('SLACK_BOT_TOKEN'))
 
