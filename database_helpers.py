@@ -112,6 +112,16 @@ def create_or_update_quiz_session(user_id, correct_user_id):
             session.rollback()
             print(f"Error creating or updating quiz session for User ID: {user_id}, Error: {str(e)}")
 
+def delete_quiz_session(user_id):
+    """Delete the active quiz session for a given user."""
+    with Session() as session:
+        try:
+            session.query(QuizSession).filter_by(user_id=user_id).delete()
+            session.commit()
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error deleting quiz session for user {user_id}: {str(e)}")
+
 def get_top_scores(limit=10):
     """Fetch the top scoring users along with their decrypted scores."""
     with Session() as session:
@@ -134,3 +144,5 @@ def get_top_scores(limit=10):
         except SQLAlchemyError as e:
             print(f"Error fetching top scores: {str(e)}")
             return []
+
+

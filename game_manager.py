@@ -1,7 +1,7 @@
 # game_manager.py
 import random
 from slack_client import get_slack_client
-from database_helpers import create_or_update_quiz_session, get_colleagues_excluding_user, update_score, get_active_quiz_session
+from database_helpers import create_or_update_quiz_session, get_colleagues_excluding_user, update_score, get_active_quiz_session, get_user_name, delete_quiz_session
 from slack_sdk.errors import SlackApiError
 from models import User
 
@@ -82,28 +82,86 @@ def send_quiz_to_user(user_id):
     except SlackApiError as e:
         print(f"Error sending message to {user_id}: {e.response['error']}")
 
-def handle_quiz_response(user_id, selected_user_id):
-    """Handles the user's quiz response and updates scores."""
+def handle_quiz_response(user_id, selected_user_id, payload):
+    """Handles the user's quiz response, updates scores, and modifies the Slack message to reflect the answer."""
 
     # Fetch the user's active quiz session
     quiz_session = get_active_quiz_session(user_id)
-    if not quiz_session:
-        print(f"No active quiz session for user {user_id}")
+    if not quiz_session or not quiz_session.correct_user_id:
+        try:
+            client.chat_postMessage(channel=user_id, text="Sorry, your quiz session has expired.")
+        except SlackApiError as e:
+            print(f"Error sending expired session message to user {user_id}: {e.response['error']}")
         return
 
-    # Check if the selected answer is correct
-    is_correct = quiz_session.correct_user_id == selected_user_id
-    if is_correct:
-        update_score(user_id, points=10)
-        response_text = "Correct! 🎉 You've earned 10 points!"
-    else:
-        response_text = "Oops, that's incorrect. Better luck next time!"
+    correct_user_id = quiz_session.correct_user_id
 
-    # Inform the user of the result
+    # Determine if the user's selection is correct
+    is_correct = selected_user_id == correct_user_id
+
+    # Update the user's score if correct
+    if is_correct:
+        update_score(user_id, points=1)
+
+    # Prepare to update the original message
+    original_blocks = payload['message']['blocks']
+    action_id = payload['actions'][0]['action_id']
+    selected_option_index = int(action_id.split('_')[-1])
+
+    # Find the action block containing the answer buttons
+    answer_action_block = next(
+        (block for block in original_blocks if block.get('block_id') == 'answer_buttons'),
+        None
+    )
+
+    if not answer_action_block:
+        print("Answer action block not found.")
+        return
+
+    # Modify the action block to reflect correct and incorrect choices
+    for idx, element in enumerate(answer_action_block['elements']):
+        # Assign a new action_id to disable further interaction
+        element['action_id'] = f"disabled_{idx}"
+        element['text']['emoji'] = True  # Ensure 'emoji' field is set
+
+        # Style the buttons based on correctness
+        if element['value'] == correct_user_id:
+            element['style'] = 'primary'  # Correct answer in green
+        elif element['value'] == selected_user_id:
+            element['style'] = 'danger'   # User's incorrect selection in red
+        else:
+            element.pop('style', None)    # Remove 'style' if any
+
+    # Add feedback text at the top
+    if is_correct:
+        feedback_text = "🎉 Correct! You really know your colleagues!"
+    else:
+        correct_name = get_user_name(correct_user_id)
+        feedback_text = f"❌ Nope! This is your amazing colleague called *{correct_name}*."
+
+    # Insert feedback text at the top of the blocks
+    original_blocks.insert(0, {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": feedback_text
+        }
+    })
+
+    # Extract channel ID and message timestamp from payload
+    channel_id = payload['channel']['id']
+    message_ts = payload['message']['ts']
+
+    # Update the original message with feedback and disabled buttons
     try:
-        client.chat_postMessage(
-            channel=user_id,
-            text=response_text
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            blocks=original_blocks,
+            text=feedback_text
         )
     except SlackApiError as e:
-        print(f"Error sending quiz response message to user {user_id}: {e.response['error']}")
+        print(f"Error updating message: {e.response['error']}")
+
+    # Remove the stored answer (delete the quiz session)
+    delete_quiz_session(user_id)
