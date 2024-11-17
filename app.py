@@ -33,6 +33,7 @@ def oauth_redirect():
     success, message = handle_slack_oauth_redirect(code)
 
     if success:
+        print("received oauth request")
         return message, 200
     else:
         return jsonify({"error": message}), 400
