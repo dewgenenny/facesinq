@@ -5,7 +5,7 @@ from database_helpers import get_top_scores
 from slack_client import get_slack_client
 
 
-def send_leaderboard(user_id):
+def send_leaderboard(channel_id):
 
     # Get the Slack client
     client = get_slack_client()
@@ -20,7 +20,7 @@ def send_leaderboard(user_id):
     # Send leaderboard message to Slack
     try:
         client.chat_postMessage(
-            channel=user_id,
+            channel=channel_id,
             text=leaderboard_text
         )
     except SlackApiError as e:

@@ -186,6 +186,7 @@ def slack_commands():
     command = request.form.get('command')
     user_id = request.form.get('user_id')
     text = request.form.get('text').strip().lower()
+    channel_id = request.form.get('channel_id')  # Extract channel_id from the incoming Slack command
 
     if command == '/facesinq':
         if text == 'opt-in':
@@ -210,7 +211,7 @@ def slack_commands():
             return jsonify(response_type='ephemeral', text=f'Your current score is {score}.'), 200
         elif text == 'leaderboard':
             print("Got leaderboard request")
-            send_leaderboard(user_id)
+            send_leaderboard(channel_id)
             return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
 
     else:
