@@ -39,13 +39,14 @@ def fetch_and_store_users(update_existing=False, team_id=None):
         print("Users already exist in the database. Skipping fetch from Slack.")
         return
 
-    # Proceed with fetching users from Slack
+    # Otherwise, proceed with fetching users from Slack
     try:
         users = fetch_users()  # Fetch users from Slack using the API
-        #print(users)
+        print(f"Fetched {len(users)} users from Slack for team {team_id}")
+
         for user in users:
             if should_skip_user(user):
-                #print("skipping user " + str(user))
+                print(f"Skipping user: {user.get('name')} ({user.get('id')})")
                 continue
 
             user_id = user.get('id')
@@ -53,7 +54,9 @@ def fetch_and_store_users(update_existing=False, team_id=None):
             profile = user.get('profile', {})
             image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-            add_or_update_user(user_id, name, image, team_id)  # Ensure `team_id` is provided for DB operations
+            # Add or update the user in the database
+            print(f"Adding/updating user: {name} ({user_id}) for team {team_id}")
+            add_or_update_user(user_id, name, image, team_id)
 
     except SlackApiError as e:
         print(f"Failed to fetch users from Slack: {e.response['error']}")
@@ -62,12 +65,12 @@ def fetch_and_store_users(update_existing=False, team_id=None):
 
 def should_skip_user(user):
     """Determine if a Slack user should be skipped."""
+    # Skip bots and deleted users
     if user.get('is_bot', False) or user.get('deleted', False):
         return True
-    # Skip users who do not have a real profile photo set (e.g., Gravatar)
-    profile = user.get('profile', {})
-    image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
-    return not image or "secure.gravatar.com" in image
+
+    # Removed image filtering: Allow users even if they have no profile picture
+    return False
 
 def fetch_and_store_users_for_all_workspaces(update_existing=False):
     """Fetch and store users for all workspaces."""
