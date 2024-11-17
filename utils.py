@@ -5,10 +5,27 @@ from slack_sdk.errors import SlackApiError
 from db import engine
 from models import Base
 from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces, get_workspace_access_token
+import re
 
 # Slack API Client setup
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 client = WebClient(token=SLACK_BOT_TOKEN)
+
+
+def extract_user_id_from_text(text):
+    """Extracts the Slack user ID from the given command text."""
+    try:
+        # Slack user IDs are typically provided in the format <@USERID>
+        match = re.search(r'<@([A-Z0-9]+)>', text)
+        if match:
+            return match.group(1)
+        else:
+            print(f"[ERROR] Unable to extract user ID from text: {text}")
+            return None
+    except Exception as e:
+        print(f"[ERROR] Exception while extracting user ID: {str(e)}")
+        return None
+
 
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=5, max=60))
 def fetch_users(team_id):

@@ -14,7 +14,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 last_sync_times = {}
 
 # Import the rest of your modules
-from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces
+from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces, extract_user_id_from_text
 from slack_sdk.errors import SlackApiError
 from leaderboard import send_leaderboard
 from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event, is_user_workspace_admin
@@ -164,13 +164,32 @@ def slack_commands():
                     return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
             else:
                 return jsonify({"text": "Please specify a valid user ID."}), 400
+    elif command == "/facesinq-reset-quiz":
+        # Check if the user is a workspace admin
+        if not is_user_workspace_admin(user_id, team_id):
+            return jsonify({
+                'response_type': 'ephemeral',  # Only the user sees this response
+                'text': "You do not have the required permissions to perform this action. Only admins are allowed."
+            }), 403
 
+        # Extract target user ID from the text
+        target_user_id = extract_user_id_from_text(text)  # Function to extract user ID from the command text
+        if target_user_id:
+            try:
+                reset_quiz_session(target_user_id)
+                return jsonify({"text": f"Quiz for user <@{target_user_id}> has been reset."})
+            except Exception as e:
+                return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
+        else:
+            return jsonify({"text": "Please specify a valid user ID using the format @username."}), 400
 
 
     else:
             return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats | leaderboard]"), 200
 
     return '', 404
+
+
 
 
 @app.route('/slack/events', methods=['POST'])
