@@ -146,7 +146,7 @@ def slack_commands():
         elif text == "sync-users":
             handle_sync_users_command(user_id, team_id)
             return jsonify(response_type='ephemeral', text=f'Syncing users'), 200
-        elif text == "/facesinq-reset-quiz":
+        elif text == "reset-quiz":
             # Check if the user is a workspace admin
             if not is_user_workspace_admin(user_id, team_id):
                 return jsonify({
