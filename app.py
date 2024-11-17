@@ -205,6 +205,7 @@ def handle_sync_users_command(user_id, team_id):
     # Ensure the workspace is recorded in the database
     if not does_workspace_exist(team_id):
         # If the workspace is not found, add it to the database using available information
+        print("No workspace found, trying to add")
         try:
             # Fetch the team info from Slack API to get team name and access token
             access_token = get_user_access_token(user_id)  # Get the user's access token
