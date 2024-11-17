@@ -45,7 +45,7 @@ def fetch_and_store_users(update_existing=False, team_id=None):
         #print(users)
         for user in users:
             if should_skip_user(user):
-                print("skipping user " + str(user))
+                #print("skipping user " + str(user))
                 continue
 
             user_id = user.get('id')
