@@ -60,7 +60,21 @@ def slack_actions():
     selected_user_id = action['value']
     message_ts = payload['message']['ts']
     channel_id = payload['channel']['id']
-    team_id = request.form.get('team_id')  # Extract team_id from the incoming Slack command
+
+    # Extract team_id from different possible locations in the payload
+    team_id = None
+
+    # 1. Try to extract team_id from the payload itself
+    if 'team' in payload and 'id' in payload['team']:
+        team_id = payload['team']['id']
+
+    # 2. As a fallback, try extracting from request.form
+    if not team_id:
+        team_id = request.form.get('team_id')
+
+    if not team_id:
+        # Log an error for debugging if no team_id is found
+        print(f"[ERROR] team_id could not be found in the request payload: {payload}")
 
     if action['action_id'].startswith('quiz_response'):
         handle_quiz_response(user_id, selected_user_id, payload, team_id)
