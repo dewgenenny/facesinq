@@ -18,8 +18,10 @@ def extract_user_id_from_text(text):
         # Slack user IDs are typically provided in the format <@USERID>
         match = re.search(r'<@([A-Z0-9]+)>', text)
         if match:
-            print(match.group(1))
             return match.group(1)
+        elif text.strip().startswith('U'):
+            # Handle the case where the user ID is provided directly
+            return text.strip()
         else:
             print(f"[ERROR] Unable to extract user ID from text: {text}")
             return None
