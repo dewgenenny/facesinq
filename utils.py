@@ -89,7 +89,7 @@ def fetch_and_store_users_for_all_workspaces(update_existing=False):
 if __name__ == '__main__':
     # Initialize database and create tables
     Base.metadata.create_all(bind=engine)  # This will create all tables if they don't exist
-    initialize_database()  # Optional: add initial setup logic if needed
+    #initialize_database()  # Optional: add initial setup logic if needed
 
     # Fetch and store Slack users if not already present
-    fetch_and_store_users()
+    #fetch_and_store_users()

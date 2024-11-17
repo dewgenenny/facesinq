@@ -24,4 +24,5 @@ def initialize_database():
 
 # Run this function if you want to manually create tables
 if __name__ == "__main__":
-    initialize_database()
+    #initialize_database()
+    print("initializing DB.py")

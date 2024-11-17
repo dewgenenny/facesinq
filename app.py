@@ -20,8 +20,8 @@ from game_manager import send_quiz_to_user, handle_quiz_response
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
     initialize_database()  # Optional: add initial setup logic if needed
-    for workspace in get_all_workspaces():
-        fetch_and_store_users(team_id=workspace.id)  # Ensure `team_id` is provided
+    fetch_and_store_users_for_all_workspaces(update_existing=True)
+
 
 
 @app.route('/slack/oauth_redirect', methods=['GET'])
@@ -200,7 +200,7 @@ if __name__ == '__main__':
             Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
 
         # Fetch users for all workspaces
-        fetch_and_store_users_for_all_workspaces(update_existing=True)
+        #fetch_and_store_users_for_all_workspaces(update_existing=True)
 
         # Schedule the quiz and user update tasks
         scheduler = BackgroundScheduler()
