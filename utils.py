@@ -121,7 +121,17 @@ def should_skip_user(user):
     if user.get('is_bot', False) or user.get('deleted', False):
         return True
 
-    # Removed image filtering: Allow users even if they have no profile picture
+    # Extract the user's profile information
+    profile = user.get('profile', {})
+
+    # Get the image from the profile (attempt higher resolution first)
+    image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
+
+    # Skip users who do not have a real profile photo set (e.g., a placeholder like Gravatar)
+    if not image or "secure.gravatar.com" in image:
+        return True
+
+    # If none of the above conditions are met, the user should not be skipped
     return False
 
 def fetch_and_store_users_for_all_workspaces(update_existing=False):
