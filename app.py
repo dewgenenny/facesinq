@@ -20,7 +20,8 @@ from game_manager import send_quiz_to_user, handle_quiz_response
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
     initialize_database()  # Optional: add initial setup logic if needed
-    fetch_and_store_users()
+    for workspace in get_all_workspaces():
+        fetch_and_store_users(team_id=workspace.id)  # Ensure `team_id` is provided
 
 
 
