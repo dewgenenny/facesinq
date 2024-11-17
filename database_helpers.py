@@ -162,7 +162,7 @@ def add_or_update_user(user_id, name, image, team_id):
     """Add a new user or update an existing one in the database."""
     if not team_id:
         raise ValueError("team_id must be provided when adding or updating a user")
-
+    print("requested to add " + name)
     with Session() as session:
         try:
             # Check if the user already exists
