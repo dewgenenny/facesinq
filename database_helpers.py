@@ -160,22 +160,22 @@ def get_top_scores(limit=10):
 
 def add_or_update_user(user_id, name, image, team_id):
     """Add a new user or update an existing one in the database."""
-    if not team_id:
-        raise ValueError("team_id must be provided when adding or updating a user")
-    print("requested to add " + name)
     with Session() as session:
         try:
             # Check if the user already exists
             existing_user = session.query(User).filter_by(id=user_id).one_or_none()
             if existing_user:
-                # Update the existing user
-                existing_user.name = name
-                existing_user.image = image
-                existing_user.team_id = team_id  # Ensure that `team_id` is properly set
+                # Update the existing user using the property setters
+                existing_user.name = name  # This will use the @name.setter to encrypt
+                existing_user.image = image  # This will use the @image.setter to encrypt
+                existing_user.team_id = team_id  # This is not encrypted, direct assignment is fine
             else:
-                # Add the new user
-                new_user = User(id=user_id, name_encrypted=name, image_encrypted=image, opted_in=False, team_id=team_id)
+                # Add a new user using property setters
+                new_user = User(id=user_id, team_id=team_id, opted_in=False)
+                new_user.name = name  # Use setter to ensure encryption
+                new_user.image = image  # Use setter to ensure encryption
                 session.add(new_user)
+
             session.commit()
         except IntegrityError as e:
             session.rollback()
