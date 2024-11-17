@@ -143,7 +143,7 @@ def slack_commands():
             print("Got leaderboard request. Channel: " + channel_id )
             send_leaderboard(channel_id, user_id)
             return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
-        elif command == "sync-users":
+        elif text == "sync-users":
             handle_sync_users_command(user_id, team_id)
             return jsonify(response_type='ephemeral', text=f'Syncing users'), 200
 
