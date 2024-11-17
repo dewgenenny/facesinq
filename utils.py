@@ -80,40 +80,25 @@ def fetch_users(team_id):
         raise e
 
 
-def fetch_and_store_users(team_id, update_existing=False):
-    """
-    Fetch users from Slack and store them in the database for a specific workspace.
-    """
-    if not team_id:
-        raise ValueError("team_id must be provided to fetch and store users.")
+def fetch_and_store_users(team_id):
+    """Fetch all users from Slack for a specific team and store them in the database."""
+    users = fetch_users(team_id)  # Fetch users from Slack API
 
-    if does_user_exist(team_id) and not update_existing:
-        print(f"Users already exist in the database for team {team_id}. Skipping fetch from Slack.")
-        return
+    for user in users:
+        if should_skip_user(user):
+            continue
 
-    try:
-        users = fetch_users(team_id)  # Fetch users from Slack using the correct team ID
-        print(f"Fetched {len(users)} users from Slack for team {team_id}")
+        user_id = user.get('id')
+        name = user.get('real_name')
 
-        for user in users:
-            if should_skip_user(user):
-                print(f"Skipping user: {user.get('name')} ({user.get('id')})")
-                continue
+        profile = user.get('profile', {})
+        image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-            user_id = user.get('id')
-            name = user.get('real_name')
-            profile = user.get('profile', {})
-            image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
-
-            # Always use the correct team_id for updating/adding users
-            print(f"Adding/updating user: {name} ({user_id}) for team {team_id}")
-            add_or_update_user(user_id, name, image, team_id)  # Make sure `team_id` is passed correctly
-
-    except SlackApiError as e:
-        print(f"Failed to fetch users from Slack: {e.response['error']}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {str(e)}")
-
+        try:
+            # Add or update the user in the database
+            add_or_update_user(team_id=team_id, user_id=user_id, name=name, image=image)
+        except Exception as e:
+            print(f"[ERROR] Failed to add/update user {user_id}: {str(e)}")
 
 def should_skip_user(user):
     """Determine if a Slack user should be skipped."""
