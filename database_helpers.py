@@ -33,6 +33,15 @@ def get_all_workspaces():
     with Session() as session:
         return session.query(Workspace).all()
 
+def get_workspace_access_token(team_id):
+    """Get the access token for a specific Slack workspace based on team_id."""
+    with Session() as session:
+        workspace = session.query(Workspace).filter_by(team_id=team_id).one_or_none()
+        if not workspace:
+            raise ValueError(f"No workspace found for team_id: {team_id}")
+        return workspace.access_token
+
+
 def get_user_name(user_id):
     with Session() as session:
         user = session.query(User).filter_by(id=user_id).one_or_none()

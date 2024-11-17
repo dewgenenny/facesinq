@@ -4,19 +4,27 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from db import engine, initialize_database
 from models import Base
-from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces
+from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces, get_workspace_access_token
 
 # Slack API Client setup
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 client = WebClient(token=SLACK_BOT_TOKEN)
 
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=5, max=60))
-def fetch_users():
+def fetch_users(team_id):
+    """Fetch all users for a specific Slack team."""
     try:
+        # Use database_helpers to get the workspace access token
+        access_token = get_workspace_access_token(team_id)
+        client = WebClient(token=access_token)  # Create a Slack client for this specific workspace
+
+        # Call Slack API to fetch users
         response = client.users_list()
         if not response.get("ok"):
             raise Exception("Error in Slack API response")
+
         return response.get("members", [])
+
     except SlackApiError as e:
         if e.response.status_code == 429:  # HTTP 429 Too Many Requests
             retry_after = int(e.response.headers.get('Retry-After', 20))  # Slack tells you how long to wait
@@ -24,7 +32,7 @@ def fetch_users():
             raise e  # Let tenacity handle the retry timing with exponential backoff
         else:
             # Handle other Slack API errors
-            print(f"Error fetching users from Slack: {e.response['error']}")
+            print(f"Error fetching users from Slack for team_id {team_id}: {e.response['error']}")
             raise e
 
 def fetch_and_store_users(team_id, update_existing=False):
