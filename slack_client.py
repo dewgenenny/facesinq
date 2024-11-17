@@ -52,7 +52,7 @@ def handle_slack_oauth_redirect(code):
             add_workspace(team_id, team_name)
 
             # Fetch and store users for the new workspace
-            fetch_and_store_users(team_id=team_id, update_existing=True)
+            fetch_and_store_users(team_id=team_id, update_existing=True)  # This part looks good and covers the case.
 
             return True, "Installation Successful!"
         else:
@@ -69,26 +69,28 @@ def handle_slack_event(event, team_id):
     event_type = event.get('type')
 
     if event_type == "team_join":
-        # A new user has joined the team
+        # Handle when a new user joins the team
         user = event.get('user', {})
-        user_id = user.get('id')
-        name = user.get('real_name')
-        profile = user.get('profile', {})
-        image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
+        if user:
+            user_id = user.get('id')
+            name = user.get('real_name')
+            profile = user.get('profile', {})
+            image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-        # Add or update the user in the database
-        add_or_update_user(user_id, name, image, team_id)
+            # Add or update user
+            add_or_update_user(user_id, name, image, team_id)
 
     elif event_type == "user_change":
-        # A user's information has changed
+        # Handle user profile updates
         user = event.get('user', {})
-        user_id = user.get('id')
-        name = user.get('real_name')
-        profile = user.get('profile', {})
-        image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
+        if user:
+            user_id = user.get('id')
+            name = user.get('real_name')
+            profile = user.get('profile', {})
+            image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-        # Update the user's details in the database
-        add_or_update_user(user_id, name, image, team_id)
+            # Update user details
+            add_or_update_user(user_id, name, image, team_id)
 
     else:
         # Print unhandled event types for debugging purposes
