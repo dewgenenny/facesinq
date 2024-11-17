@@ -19,7 +19,7 @@ from game_manager import send_quiz_to_user, handle_quiz_response
 
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
-    initialize_database()  # Optional: add initial setup logic if needed
+    #initialize_database()  # Optional: add initial setup logic if needed
     #fetch_and_store_users_for_all_workspaces(update_existing=True)
 
 @app.route('/slack/oauth_redirect', methods=['GET'])
