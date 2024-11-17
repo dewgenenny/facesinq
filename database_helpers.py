@@ -1,6 +1,6 @@
 # database_helpers.py
 from db import Session
-from models import User, Score, QuizSession
+from models import User, Score, QuizSession, decrypt_value
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -113,11 +113,24 @@ def create_or_update_quiz_session(user_id, correct_user_id):
             print(f"Error creating or updating quiz session for User ID: {user_id}, Error: {str(e)}")
 
 def get_top_scores(limit=10):
-    """Fetch the top scoring users along with their scores."""
+    """Fetch the top scoring users along with their decrypted scores."""
     with Session() as session:
         try:
-            top_scores = session.query(User.name, Score.score).join(Score).order_by(Score.score.desc()).limit(limit).all()
-            return top_scores
+            # Query the top scores, join with User table
+            top_scores = session.query(User.name_encrypted, Score.score).join(Score).order_by(Score.score.desc()).limit(limit).all()
+
+            # Decrypt usernames
+            decrypted_scores = []
+            for name_encrypted, score in top_scores:
+                try:
+                    name_decrypted = decrypt_value(name_encrypted)
+                    decrypted_scores.append((name_decrypted, score))
+                except Exception as e:
+                    print(f"Error decrypting name: {str(e)}")
+                    decrypted_scores.append(("Unknown", score))  # Handle decryption errors gracefully
+
+            return decrypted_scores
+
         except SQLAlchemyError as e:
             print(f"Error fetching top scores: {str(e)}")
             return []

@@ -22,25 +22,22 @@ class User(Base):
     @property
     def name(self):
         # Decrypt name when accessed
-        return fernet.decrypt(self.name_encrypted.encode()).decode()
+        return decrypt_value(self.name_encrypted)
 
     @name.setter
     def name(self, value):
         # Encrypt name when setting it
-        self.name_encrypted = fernet.encrypt(value.encode()).decode()
+        self.name_encrypted = encrypt_value(value)
 
     @property
     def image(self):
         # Decrypt image when accessed
-        return fernet.decrypt(self.image_encrypted.encode()).decode() if self.image_encrypted else None
+        return decrypt_value(self.image_encrypted)
 
     @image.setter
     def image(self, value):
         # Encrypt image when setting it
-        if value:
-            self.image_encrypted = fernet.encrypt(value.encode()).decode()
-        else:
-            self.image_encrypted = None
+        self.image_encrypted = encrypt_value(value)
 
     def __repr__(self):
         return f"<User {self.name}>"
@@ -66,3 +63,9 @@ class QuizSession(Base):
 # # Define relationships after all classes are defined
 # User.scores = db.relationship('Score', back_populates='user')
 # User.quiz_sessions = db.relationship("QuizSession", back_populates="user")
+
+def encrypt_value(value):
+    return fernet.encrypt(value.encode()).decode() if value else None
+
+def decrypt_value(value):
+    return fernet.decrypt(value.encode()).decode() if value else None
