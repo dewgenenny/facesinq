@@ -16,24 +16,48 @@ def fetch_users(team_id):
     try:
         # Use database_helpers to get the workspace access token
         access_token = get_workspace_access_token(team_id)
-        client = WebClient(token=access_token)  # Create a Slack client for this specific workspace
+
+        if not access_token:
+            raise ValueError(f"No access token found for team_id: {team_id}")
+
+        print(f"[DEBUG] Fetching users for team_id: {team_id} using access token: {access_token[:6]}...")
+
+        # Create a Slack client for this specific workspace
+        client = WebClient(token=access_token)
 
         # Call Slack API to fetch users
         response = client.users_list()
-        if not response.get("ok"):
-            raise Exception("Error in Slack API response")
 
-        return response.get("members", [])
+        # Log entire response for debugging purposes
+        print(f"[DEBUG] Slack API response for team_id {team_id}: {response}")
+
+        if not response.get("ok"):
+            raise Exception(f"[ERROR] Slack API response not OK: {response}")
+
+        # Extract and return members list if the response is successful
+        members = response.get("members", [])
+        print(f"[DEBUG] Successfully fetched {len(members)} users for team_id {team_id}")
+
+        return members
 
     except SlackApiError as e:
         if e.response.status_code == 429:  # HTTP 429 Too Many Requests
             retry_after = int(e.response.headers.get('Retry-After', 20))  # Slack tells you how long to wait
-            print(f"Rate limited. Waiting for {retry_after} seconds before retrying.")
+            print(f"[DEBUG] Rate limited. Waiting for {retry_after} seconds before retrying.")
             raise e  # Let tenacity handle the retry timing with exponential backoff
         else:
             # Handle other Slack API errors
-            print(f"Error fetching users from Slack for team_id {team_id}: {e.response['error']}")
+            print(f"[ERROR] Slack API error for team_id {team_id}: {e.response['error']}")
             raise e
+
+    except ValueError as e:
+        print(f"[ERROR] ValueError: {str(e)}")
+        raise e
+
+    except Exception as e:
+        print(f"[ERROR] Unexpected error occurred while fetching users for team_id {team_id}: {str(e)}")
+        raise e
+
 
 def fetch_and_store_users(team_id, update_existing=False):
     """
