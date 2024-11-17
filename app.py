@@ -11,7 +11,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///facesinq.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Import the rest of your modules
-from utils import fetch_and_store_users
+from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces
 from slack_sdk.errors import SlackApiError
 from leaderboard import send_leaderboard
 from slack_client import get_slack_client, verify_slack_signature
