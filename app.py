@@ -4,7 +4,7 @@ import time
 import json
 from db import engine, initialize_database  # Import the engine and initialization function
 from models import Base # Ensure models are imported so they are registered
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces
+from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
@@ -198,11 +198,43 @@ def slack_install():
 
 def handle_sync_users_command(user_id, team_id):
     """Handle the `/sync-users` command to refresh users in the workspace."""
-    # Rate limit check: Ensure the command is not called too often
+    global last_sync_times  # Use the global dictionary to track last sync times
     current_time = time.time()
     rate_limit_interval = 3600  # 1 hour in seconds
 
-    # Check if this workspace has synced recently
+    # Ensure the workspace is recorded in the database
+    if not does_workspace_exist(team_id):
+        # If the workspace is not found, add it to the database using available information
+        try:
+            # Fetch the team info from Slack API to get team name and access token
+            access_token = get_user_access_token(user_id)  # Get the user's access token
+            client = get_slack_client()
+            response = client.team_info()
+
+            if not response.get('ok'):
+                return jsonify({
+                    'response_type': 'ephemeral',
+                    'text': "Failed to retrieve workspace information from Slack. Please try again or contact support."
+                })
+
+            team_info = response.get('team', {})
+            team_name = team_info.get('name', 'Unknown Workspace')
+
+            # Add workspace to the database
+            add_workspace(team_id, team_name, access_token)
+
+        except SlackApiError as e:
+            return jsonify({
+                'response_type': 'ephemeral',
+                'text': f"Failed to retrieve workspace information from Slack: {e.response['error']}"
+            })
+        except Exception as e:
+            return jsonify({
+                'response_type': 'ephemeral',
+                'text': f"An unexpected error occurred while adding the workspace: {str(e)}"
+            })
+
+    # Rate limit check: Ensure the command is not called too often
     if team_id in last_sync_times:
         elapsed_time = current_time - last_sync_times[team_id]
         if elapsed_time < rate_limit_interval:

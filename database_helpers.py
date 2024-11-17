@@ -59,6 +59,26 @@ def get_workspace_access_token(team_id):
             print(f"[ERROR] Failed to retrieve workspace for team_id {team_id}: {str(e)}")
             raise e
 
+def get_user_access_token(user_id):
+    """Retrieve the access token for the workspace associated with the user_id."""
+    with Session() as session:
+        user = session.query(User).filter_by(id=user_id).one_or_none()
+        if not user:
+            raise ValueError(f"No user found with user_id: {user_id}")
+
+        # Get the workspace from the user information
+        workspace = session.query(Workspace).filter_by(id=user.team_id).one_or_none()
+        if not workspace:
+            raise ValueError(f"No workspace found for team_id associated with user_id: {user_id}")
+
+        return workspace.access_token
+
+def does_workspace_exist(team_id):
+    """Check if a workspace with the given team_id exists in the database."""
+    with Session() as session:
+        return session.query(Workspace).filter_by(id=team_id).one_or_none() is not None
+
+
 def get_user_name(user_id):
     with Session() as session:
         user = session.query(User).filter_by(id=user_id).one_or_none()
