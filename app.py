@@ -24,6 +24,7 @@ from slack_sdk.signature import SignatureVerifier
 from quiz_app import send_quiz_to_user
 from leaderboard import send_leaderboard
 from slack_client import get_slack_client, verify_slack_signature
+from game_manager import send_quiz_to_user, handle_quiz_response
 
 import sqlite3
 
@@ -54,89 +55,15 @@ def slack_actions():
     # Parse the payload
     payload = json.loads(request.form.get('payload'))
     action = payload['actions'][0]
-    action_id = action['action_id']
     user_id = payload['user']['id']
     selected_user_id = action['value']
     message_ts = payload['message']['ts']
     channel_id = payload['channel']['id']
 
-    if action_id.startswith('quiz_response_'):
-        # Fetch the current quiz session
-        with Session() as session:
-            quiz_session = session.query(QuizSession).filter_by(user_id=user_id).one_or_none()
+    if action['action_id'].startswith('quiz_response'):
+        handle_quiz_response(user_id, selected_user_id)
 
-            if not quiz_session or not quiz_session.correct_user_id:
-                client.chat_postMessage(channel=user_id, text="Sorry, your quiz session has expired.")
-                return '', 200
-
-            correct_user_id = quiz_session.correct_user_id
-
-            # Determine if the user's selection is correct
-            is_correct = selected_user_id == correct_user_id
-
-            # Update the user's score if correct
-            if is_correct:
-                update_score(user_id, 1)
-
-            # Prepare to update the original message
-            original_blocks = payload['message']['blocks']
-            selected_option_index = int(action_id.split('_')[-1])
-
-            # Find the action block containing the answer buttons
-            answer_action_block = next(
-                (block for block in original_blocks if block.get('block_id') == 'answer_buttons'),
-                None
-            )
-
-            if not answer_action_block:
-                print("Answer action block not found.")
-                return '', 200
-
-            # Modify the action block to reflect correct and incorrect choices
-            for idx, element in enumerate(answer_action_block['elements']):
-                # Assign a new action_id to disable further interaction
-                element['action_id'] = f"disabled_{idx}"
-                element['text']['emoji'] = True  # Ensure 'emoji' field is set
-
-                # Style the buttons based on correctness
-                if element['value'] == correct_user_id:
-                    element['style'] = 'primary'  # Correct answer in green
-                elif element['value'] == selected_user_id:
-                    element['style'] = 'danger'   # User's incorrect selection in red
-                else:
-                    element.pop('style', None)    # Remove 'style' if any
-
-            # Add feedback text at the top
-            if is_correct:
-                feedback_text = "🎉 Correct! You really know your colleagues!"
-            else:
-                correct_name = get_user_name(correct_user_id)
-                feedback_text = f"❌ Nope! This is your amazing colleague called *{correct_name}*."
-
-            # Insert feedback text at the top of the blocks
-            original_blocks.insert(0, {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": feedback_text
-                }
-            })
-
-            # Update the original message with feedback and disabled buttons
-            try:
-                client.chat_update(
-                    channel=channel_id,
-                    ts=message_ts,
-                    blocks=original_blocks,
-                    text=feedback_text
-                )
-            except SlackApiError as e:
-                print(f"Error updating message: {e.response['error']}")
-
-            # Remove the stored answer (delete the quiz session)
-            session.query(QuizSession).filter_by(user_id=user_id).delete()
-            session.commit()
-    elif action_id == 'next_quiz':
+    elif action['action_id'] == 'next_quiz':
         # Handle the "Next Quiz" button click
         send_quiz_to_user(user_id)
 
@@ -215,7 +142,7 @@ def slack_commands():
             return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
 
     else:
-            return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats]"), 200
+            return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats | leaderboard]"), 200
 
     return '', 404
 
