@@ -22,8 +22,6 @@ with app.app_context():
     initialize_database()  # Optional: add initial setup logic if needed
     #fetch_and_store_users_for_all_workspaces(update_existing=True)
 
-
-
 @app.route('/slack/oauth_redirect', methods=['GET'])
 def oauth_redirect():
     # Get authorization code from Slack
