@@ -17,7 +17,7 @@ last_sync_times = {}
 from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces
 from slack_sdk.errors import SlackApiError
 from leaderboard import send_leaderboard
-from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event
+from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event, is_user_workspace_admin
 from game_manager import send_quiz_to_user, handle_quiz_response
 
 with app.app_context():
@@ -146,6 +146,24 @@ def slack_commands():
         elif text == "sync-users":
             handle_sync_users_command(user_id, team_id)
             return jsonify(response_type='ephemeral', text=f'Syncing users'), 200
+        elif text == "/facesinq-reset-quiz":
+            # Check if the user is a workspace admin
+            if not is_user_workspace_admin(user_id, team_id):
+                return jsonify({
+                    'response_type': 'ephemeral',  # Only the user sees this response
+                    'text': "You do not have the required permissions to perform this action. Only admins are allowed."
+                }), 403
+
+            # Extract target user ID from the text
+            target_user_id = user_id  # Function to extract user ID from the command text
+            if target_user_id:
+                try:
+                    reset_quiz_session(target_user_id)
+                    return jsonify({"text": f"Quiz for user <@{target_user_id}> has been reset."})
+                except Exception as e:
+                    return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
+            else:
+                return jsonify({"text": "Please specify a valid user ID."}), 400
 
 
 

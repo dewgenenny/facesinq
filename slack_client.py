@@ -103,3 +103,22 @@ def handle_slack_event(event, team_id):
     else:
         # Print unhandled event types for debugging purposes
         print(f"Unhandled event type: {event_type}")
+
+def is_user_workspace_admin(user_id, team_id):
+    """Determine if a user is a workspace admin."""
+    try:
+        # Get the Slack client with the correct workspace access token
+        response = client.users_info(user=user_id)
+
+        if response.get("ok"):
+            user_info = response.get("user", {})
+            is_admin = user_info.get("is_admin", False)
+            is_owner = user_info.get("is_owner", False)
+            return is_admin or is_owner
+        else:
+            print(f"Failed to get user info for user {user_id}: {response.get('error')}")
+            return False
+
+    except SlackApiError as e:
+        print(f"Slack API error when fetching user info for user {user_id}: {e.response['error']}")
+        return False

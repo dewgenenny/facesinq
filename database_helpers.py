@@ -1,7 +1,7 @@
 # database_helpers.py
 from db import Session
 from models import User, Score, QuizSession, decrypt_value, Workspace
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError, NoResultFound
 
 
 
@@ -180,6 +180,27 @@ def delete_quiz_session(user_id):
         except SQLAlchemyError as e:
             session.rollback()
             print(f"Error deleting quiz session for user {user_id}: {str(e)}")
+
+def reset_quiz_session(user_id):
+    """Resets the quiz session for the given user, if one exists."""
+    with Session() as session:
+        try:
+            # Find the active quiz session for the user
+            quiz_session = session.query(QuizSession).filter_by(user_id=user_id).one_or_none()
+
+            if quiz_session:
+                session.delete(quiz_session)
+                session.commit()
+                print(f"Quiz session for user {user_id} has been successfully reset.")
+            else:
+                print(f"No active quiz session found for user {user_id} to reset.")
+
+        except NoResultFound:
+            print(f"No active quiz session found for user {user_id}.")
+        except Exception as e:
+            session.rollback()
+            print(f"An error occurred while resetting quiz session for user {user_id}: {str(e)}")
+
 
 def get_top_scores(limit=10):
     """Fetch the top scoring users along with their decrypted scores."""
