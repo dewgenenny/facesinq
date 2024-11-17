@@ -108,6 +108,7 @@ def is_user_workspace_admin(user_id, team_id):
     """Determine if a user is a workspace admin."""
     try:
         # Get the Slack client with the correct workspace access token
+        client = get_slack_client(team_id)
         response = client.users_info(user=user_id)
 
         if response.get("ok"):
