@@ -34,9 +34,9 @@ def fetch_and_store_users(update_existing=False, team_id=None):
     if not team_id:
         raise ValueError("team_id must be provided to fetch and store users.")
 
-    # Check if users already exist in the database
-    if does_user_exist() and not update_existing:
-        print("Users already exist in the database. Skipping fetch from Slack.")
+    # Check if users already exist in the database for the workspace
+    if does_user_exist(team_id) and not update_existing:
+        print(f"Users already exist in the database for team {team_id}. Skipping fetch from Slack.")
         return
 
     # Otherwise, proceed with fetching users from Slack
