@@ -1,6 +1,5 @@
 import os
 import random
-from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from sqlalchemy.orm import Session
 from db import Session

@@ -1,6 +1,4 @@
-# app.py
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 import os
 import json
 from db import engine, Session, initialize_database  # Import the engine and initialization function
@@ -54,7 +52,7 @@ def slack_actions():
     channel_id = payload['channel']['id']
 
     if action['action_id'].startswith('quiz_response'):
-        handle_quiz_response(user_id, selected_user_id)
+        handle_quiz_response(user_id, selected_user_id, payload)
 
     elif action['action_id'] == 'next_quiz':
         # Handle the "Next Quiz" button click
