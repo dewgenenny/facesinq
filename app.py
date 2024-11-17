@@ -14,7 +14,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces
 from slack_sdk.errors import SlackApiError
 from leaderboard import send_leaderboard
-from slack_client import get_slack_client, verify_slack_signature
+from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event
 from game_manager import send_quiz_to_user, handle_quiz_response
 
 with app.app_context():
@@ -24,11 +24,23 @@ with app.app_context():
         fetch_and_store_users(team_id=workspace.id)  # Ensure `team_id` is provided
 
 
+@app.route('/slack/oauth_redirect', methods=['GET'])
+def oauth_redirect():
+    # Get authorization code from Slack
+    code = request.args.get('code')
 
+    # Handle the OAuth redirect using slack_client
+    success, message = handle_slack_oauth_redirect(code)
+
+    if success:
+        return message, 200
+    else:
+        return jsonify({"error": message}), 400
 
 @app.route('/')
 def index():
     return 'FaceSinq is running!'
+
 
 @app.route('/slack/actions', methods=['POST'])
 def slack_actions():
@@ -146,7 +158,7 @@ def slack_events():
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
-        data = {}
+        return jsonify({'error': 'invalid JSON'}), 400
 
     # Handle URL verification challenge
     if data.get('type') == 'url_verification':
@@ -160,11 +172,12 @@ def slack_events():
     # Handle event callbacks
     if data.get('type') == 'event_callback':
         event = data.get('event')
-        # You can handle different event types here
-        return '', 200
+        team_id = data.get('team_id')  # Extract the `team_id` from the request
 
-    # If the request doesn't match any known types
-    return '', 404
+        # Delegate event handling to slack_client
+        if event:
+            handle_slack_event(event, team_id)
+            return '', 200
 
 @app.route('/slack/install', methods=['POST'])
 def slack_install():

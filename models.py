@@ -5,8 +5,7 @@ from cryptography.fernet import Fernet
 import os
 
 # Load encryption key from environment variable
-#ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
-ENCRYPTION_KEY = 'gGZ7qQ-ely9xpNgkQHRuDAUWQkvwSZTWkHP7Wg7NkGo='
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
 
 fernet = Fernet(ENCRYPTION_KEY)
 
