@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import os
+import time
 import json
 from db import engine, initialize_database  # Import the engine and initialization function
 from models import Base # Ensure models are imported so they are registered
@@ -9,6 +10,8 @@ app = Flask(__name__)
 # Configuration for SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///facesinq.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+last_sync_times = {}
 
 # Import the rest of your modules
 from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces
@@ -140,6 +143,11 @@ def slack_commands():
             print("Got leaderboard request. Channel: " + channel_id )
             send_leaderboard(channel_id, user_id)
             return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
+        elif command == "sync-users":
+            handle_sync_users_command(user_id, team_id)
+            return jsonify(response_type='ephemeral', text=f'Syncing users'), 200
+
+
 
     else:
             return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats | leaderboard]"), 200
@@ -187,6 +195,46 @@ def slack_install():
     add_workspace(team_id, team_name)
 
     return "App Installed Successfully", 200
+
+def handle_sync_users_command(user_id, team_id):
+    """Handle the `/sync-users` command to refresh users in the workspace."""
+    # Rate limit check: Ensure the command is not called too often
+    current_time = time.time()
+    rate_limit_interval = 3600  # 1 hour in seconds
+
+    # Check if this workspace has synced recently
+    if team_id in last_sync_times:
+        elapsed_time = current_time - last_sync_times[team_id]
+        if elapsed_time < rate_limit_interval:
+            remaining_time = rate_limit_interval - elapsed_time
+            minutes = int(remaining_time // 60)
+            seconds = int(remaining_time % 60)
+            return jsonify({
+                'response_type': 'ephemeral',
+                'text': f"Sync can be run only once per hour. Please try again in {minutes} minutes and {seconds} seconds."
+            })
+
+    # Update last sync time
+    last_sync_times[team_id] = current_time
+
+    # Start the user sync
+    try:
+        fetch_and_store_users(team_id, update_existing=True)
+        return jsonify({
+            'response_type': 'in_channel',
+            'text': "User sync successfully started for your workspace."
+        })
+    except SlackApiError as e:
+        return jsonify({
+            'response_type': 'ephemeral',
+            'text': f"Failed to start user sync: {e.response['error']}"
+        })
+    except Exception as e:
+        return jsonify({
+            'response_type': 'ephemeral',
+            'text': f"An unexpected error occurred: {str(e)}"
+        })
+
 
 if __name__ == '__main__':
 

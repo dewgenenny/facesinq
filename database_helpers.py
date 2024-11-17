@@ -125,6 +125,7 @@ def update_user_opt_in(user_id, opt_in):
                 print(f"User {user_id} opt-in updated to {opt_in}")
             else:
                 print(f"No user found with User ID: {user_id}")
+
         except SQLAlchemyError as e:
             print(f"Error updating user opt-in for User ID: {user_id}, Error: {str(e)}")
             session.rollback()  # Rollback the transaction in case of an error
