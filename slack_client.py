@@ -52,6 +52,7 @@ def handle_slack_oauth_redirect(code):
             add_workspace(team_id, team_name)
 
             # Fetch and store users for the new workspace
+            print("calling fetch_and_stores_users for team_id " + team_id)
             fetch_and_store_users(team_id=team_id, update_existing=True)  # This part looks good and covers the case.
 
             return True, "Installation Successful!"
