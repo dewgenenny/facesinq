@@ -15,6 +15,7 @@ client = WebClient(token=SLACK_BOT_TOKEN)
 def extract_user_id_from_text(text):
     """Extracts the Slack user ID from the given command text."""
     try:
+        text = text.strip().upper()
         # Slack user IDs are typically provided in the format <@USERID>
         match = re.search(r'<@([A-Z0-9]+)>', text)
         if match:
