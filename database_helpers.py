@@ -111,3 +111,13 @@ def create_or_update_quiz_session(user_id, correct_user_id):
         except SQLAlchemyError as e:
             session.rollback()
             print(f"Error creating or updating quiz session for User ID: {user_id}, Error: {str(e)}")
+
+def get_top_scores(limit=10):
+    """Fetch the top scoring users along with their scores."""
+    with Session() as session:
+        try:
+            top_scores = session.query(User.name, Score.score).join(Score).order_by(Score.score.desc()).limit(limit).all()
+            return top_scores
+        except SQLAlchemyError as e:
+            print(f"Error fetching top scores: {str(e)}")
+            return []
