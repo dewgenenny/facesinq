@@ -3,6 +3,9 @@ import os
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.signature import SignatureVerifier
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # Slack bot token and client setup
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -18,5 +21,6 @@ def get_slack_client():
 def verify_slack_signature(request):
     """Verifies the signature of incoming Slack requests."""
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
+        logging.warning("Invalid Slack signature verification for request.")
         return False
     return True

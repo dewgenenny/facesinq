@@ -45,7 +45,7 @@ def index():
 @app.route('/slack/actions', methods=['POST'])
 def slack_actions():
     # initialise slack client
-    client = get_slack_client
+    client = get_slack_client()
 
     # verify signature
     if not verify_slack_signature(request):
