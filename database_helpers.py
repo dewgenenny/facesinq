@@ -90,3 +90,24 @@ def update_user_opt_in(user_id, opt_in):
         except SQLAlchemyError as e:
             print(f"Error updating user opt-in for User ID: {user_id}, Error: {str(e)}")
             session.rollback()  # Rollback the transaction in case of an error
+
+def get_colleagues_excluding_user(user_id):
+    """Fetch all colleagues excluding the user with user_id."""
+    with Session() as session:
+        return session.query(User).filter(User.id != user_id).all()
+
+def get_active_quiz_session(user_id):
+    """Check if the user has an active quiz session."""
+    with Session() as session:
+        return session.query(QuizSession).filter(QuizSession.user_id == user_id).one_or_none()
+
+def create_or_update_quiz_session(user_id, correct_user_id):
+    """Create or update the quiz session for a user."""
+    with Session() as session:
+        try:
+            quiz_session = QuizSession(user_id=user_id, correct_user_id=correct_user_id)
+            session.merge(quiz_session)  # Use `merge` to replace or insert as needed
+            session.commit()
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error creating or updating quiz session for User ID: {user_id}, Error: {str(e)}")
