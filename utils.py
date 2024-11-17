@@ -2,7 +2,7 @@ import os
 from tenacity import retry, stop_after_attempt, wait_exponential
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from db import engine, initialize_database
+from db import engine
 from models import Base
 from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces, get_workspace_access_token
 
