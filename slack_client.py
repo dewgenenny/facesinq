@@ -5,7 +5,7 @@ from slack_sdk.errors import SlackApiError
 from slack_sdk.signature import SignatureVerifier
 import logging
 from slack_sdk import WebClient
-from database_helpers import add_or_update_user, add_workspace
+from database_helpers import add_or_update_user, add_workspace, get_workspace_access_token
 from utils import fetch_and_store_users
 
 logging.basicConfig(level=logging.INFO)
@@ -21,8 +21,14 @@ client = WebClient(token=SLACK_BOT_TOKEN)
 SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
 signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
 
-def get_slack_client():
-    return client
+def get_slack_client(team_id=None):
+    """
+    Returns a Slack client for a specific workspace. If no team_id is provided, returns the default client.
+    """
+    if team_id:
+        access_token = get_workspace_access_token(team_id)
+        return WebClient(token=access_token)
+    return WebClient(token=os.environ.get('SLACK_BOT_TOKEN'))
 
 def verify_slack_signature(request):
     """Verifies the signature of incoming Slack requests."""

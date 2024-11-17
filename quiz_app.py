@@ -19,25 +19,19 @@ def send_quiz_to_user(user_id, team_id):
     """Send a quiz to a specific user in the workspace."""
     global quiz_answers
 
-    # Get the workspace's access token
-    try:
-        access_token = get_workspace_access_token(team_id)
-    except ValueError as e:
-        print(f"[ERROR] Failed to retrieve access token for workspace: {str(e)}")
-        return
 
     # Set up the Slack client with the correct access token
-    client = get_slack_client()
+    client = get_slack_client(team_id)
 
     # Set up the SQLAlchemy session
     session = Session()
 
     try:
         # Get all colleagues, excluding the user themselves
-        colleagues = session.query(User).filter(User.id != user_id, User.team_id == team_id).all()
+        colleagues = get_colleagues_excluding_user(user_id, team_id)
 
         # Check if the user already has an active quiz session
-        existing_quiz = session.query(QuizSession).filter(QuizSession.user_id == user_id).first()
+        existing_quiz = get_active_quiz_session(user_id)
 
         if existing_quiz:
             print(f"User {user_id} already has an active quiz.")
@@ -57,9 +51,7 @@ def send_quiz_to_user(user_id, team_id):
         random.shuffle(options)
 
         # Store the correct answer in quiz_sessions
-        quiz_session = QuizSession(user_id=user_id, correct_user_id=correct_choice.id)
-        session.merge(quiz_session)  # Use `merge` to replace or insert as needed
-        session.commit()
+        quiz_session = create_or_update_quiz_session(user_id=user_id, correct_user_id=correct_choice.id)
 
         # Build interactive message
         blocks = [
