@@ -7,11 +7,11 @@ from models import User
 
 client = get_slack_client()
 
-def send_quiz_to_user(user_id):
+def send_quiz_to_user(user_id, team_id):
     """Send a quiz to a user by creating quiz options and posting them to Slack."""
 
     # Fetch colleagues excluding the user themselves
-    colleagues = get_colleagues_excluding_user(user_id)
+    colleagues = get_colleagues_excluding_user(user_id, team_id)
 
     # Check if the user already has an active quiz session
     existing_quiz = get_active_quiz_session(user_id)

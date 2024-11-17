@@ -1,12 +1,10 @@
 import os
-import time
 from tenacity import retry, stop_after_attempt, wait_exponential
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from sqlalchemy.orm import sessionmaker
-from db import Session, engine, initialize_database
-from models import User, Base
-from sqlalchemy.exc import IntegrityError
+from db import engine, initialize_database
+from models import Base
+from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces
 
 # Slack API Client setup
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -29,55 +27,51 @@ def fetch_users():
             print(f"Error fetching users from Slack: {e.response['error']}")
             raise e
 
-def fetch_and_store_users(update_existing=False):
+def fetch_and_store_users(update_existing=False, team_id=None):
+    """
+    Fetch users from Slack and store them in the database.
+    """
     # Check if users already exist in the database
-    with Session(bind=engine) as session:
-        user_count = session.query(User).count()
+    if does_user_exist() and not update_existing:
+        print("Users already exist in the database. Skipping fetch from Slack.")
+        return
 
-        # If users exist and we are not updating, skip fetching
-        if user_count > 0 and not update_existing:
-            print("Users already exist in the database. Skipping fetch from Slack.")
-            return
+    # Otherwise, proceed with fetching users from Slack
+    try:
+        users = fetch_users()  # Fetch users from Slack using the API
+        for user in users:
+            # Skip users who are bots, deleted, or lack proper profile images
+            if should_skip_user(user):
+                continue
 
-        # Otherwise, proceed with fetching users from Slack
-        try:
-            users = fetch_users()
-            for user in users:
-                user_id = user.get('id')
-                name = user.get('real_name')
+            user_id = user.get('id')
+            name = user.get('real_name')
+            profile = user.get('profile', {})
+            image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-                profile = user.get('profile', {})
-                image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
+            # Add or update the user in the database using a helper function
+            add_or_update_user(user_id, name, image, team_id)
 
-                # Skip users who are bots or deleted
-                if user.get('is_bot', False) or user.get('deleted', False):
-                    continue
+    except SlackApiError as e:
+        print(f"Failed to fetch users from Slack: {e.response['error']}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
 
-                # Skip users who do not have a real profile photo set (placeholder)
-                if not image or "secure.gravatar.com" in image:
-                    continue
+def should_skip_user(user):
+    """Determine if a Slack user should be skipped."""
+    if user.get('is_bot', False) or user.get('deleted', False):
+        return True
+    # Skip users who do not have a real profile photo set (e.g., Gravatar)
+    profile = user.get('profile', {})
+    image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
+    return not image or "secure.gravatar.com" in image
 
-                try:
-                    # Check if user already exists
-                    existing_user = session.query(User).filter_by(id=user_id).one_or_none()
-                    if existing_user:
-                        # Update the existing user
-                        existing_user.name = name
-                        existing_user.image = image
-                    else:
-                        # Add the new user
-                        new_user = User(id=user_id, name=name, image=image, opted_in=0)
-                        session.add(new_user)
-                    session.commit()
+def fetch_and_store_users_for_all_workspaces(update_existing=False):
+    """Fetch and store users for all workspaces."""
+    for workspace in get_all_workspaces():
+        print(f"Updating users for workspace {workspace.name} ({workspace.id})")
+        fetch_and_store_users(update_existing=update_existing, team_id=workspace.id)
 
-                except IntegrityError as e:
-                    session.rollback()
-                    print(f"Failed to insert/update user {user_id}: {str(e)}")
-
-        except SlackApiError as e:
-            print(f"Failed to fetch users from Slack: {e}")
-        except Exception as e:
-            print(f"An unexpected error occurred: {str(e)}")
 
 if __name__ == '__main__':
     # Initialize database and create tables

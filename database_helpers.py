@@ -1,7 +1,7 @@
 # database_helpers.py
 from db import Session
-from models import User, Score, QuizSession, decrypt_value
-from sqlalchemy.exc import SQLAlchemyError
+from models import User, Score, QuizSession, decrypt_value, Workspace
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 
 
@@ -18,6 +18,20 @@ from sqlalchemy.exc import SQLAlchemyError
 #             session.rollback()
 #             print(f"Database error: {str(e)}")
 #             raise  # Re-raise the exception so the caller can handle it if needed
+
+def add_workspace(team_id, team_name):
+    """Add a workspace if it doesn't already exist in the database."""
+    with Session() as session:
+        existing_workspace = session.query(Workspace).filter_by(id=team_id).one_or_none()
+        if not existing_workspace:
+            new_workspace = Workspace(id=team_id, name=team_name)
+            session.add(new_workspace)
+            session.commit()
+
+def get_all_workspaces():
+    """Fetch all workspaces from the database."""
+    with Session() as session:
+        return session.query(Workspace).all()
 
 def get_user_name(user_id):
     with Session() as session:
@@ -91,10 +105,10 @@ def update_user_opt_in(user_id, opt_in):
             print(f"Error updating user opt-in for User ID: {user_id}, Error: {str(e)}")
             session.rollback()  # Rollback the transaction in case of an error
 
-def get_colleagues_excluding_user(user_id):
-    """Fetch all colleagues excluding the user with user_id."""
+def get_colleagues_excluding_user(user_id, team_id):
+    """Fetch all colleagues excluding the given user from the same workspace."""
     with Session() as session:
-        return session.query(User).filter(User.id != user_id).all()
+        return session.query(User).filter(User.id != user_id, User.team_id == team_id).all()
 
 def get_active_quiz_session(user_id):
     """Check if the user has an active quiz session."""
@@ -146,3 +160,30 @@ def get_top_scores(limit=10):
             return []
 
 
+def add_or_update_user(user_id, name, image, team_id):
+    """Add a new user or update an existing one in the database."""
+    with Session() as session:
+        try:
+            # Check if user already exists
+            existing_user = session.query(User).filter_by(id=user_id).one_or_none()
+            if existing_user:
+                # Update the existing user
+                existing_user.name = name
+                existing_user.image = image
+                existing_user.team_id = team_id
+            else:
+                # Add the new user
+                new_user = User(id=user_id, name_encrypted=name, image_encrypted=image, opted_in=False, team_id=team_id)
+                session.add(new_user)
+            session.commit()
+        except IntegrityError as e:
+            session.rollback()
+            print(f"Failed to insert/update user {user_id}: {str(e)}")
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Database error while adding/updating user {user_id}: {str(e)}")
+
+def does_user_exist():
+    """Check if users already exist in the database."""
+    with Session() as session:
+        return session.query(User).count() > 0

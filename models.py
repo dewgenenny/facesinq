@@ -12,6 +12,7 @@ fernet = Fernet(ENCRYPTION_KEY)
 class User(Base):
     __tablename__ = 'users'
     id = Column(String, primary_key=True)
+    team_id = Column(String, nullable=False)  # Track which Slack team this user belongs to
     name_encrypted = Column(String, nullable=False)
     image_encrypted = Column(String)
     opted_in = Column(Boolean, default=False)
@@ -63,6 +64,14 @@ class QuizSession(Base):
 # # Define relationships after all classes are defined
 # User.scores = db.relationship('Score', back_populates='user')
 # User.quiz_sessions = db.relationship("QuizSession", back_populates="user")
+
+class Workspace(Base):
+    __tablename__ = 'workspaces'
+    id = Column(String, primary_key=True)  # This will store the team_id
+    name = Column(String)  # Optionally, store the workspace name for reference
+
+    def __repr__(self):
+        return f"<Workspace {self.name} ({self.id})>"
 
 def encrypt_value(value):
     return fernet.encrypt(value.encode()).decode() if value else None
