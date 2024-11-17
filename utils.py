@@ -42,9 +42,10 @@ def fetch_and_store_users(update_existing=False, team_id=None):
     # Proceed with fetching users from Slack
     try:
         users = fetch_users()  # Fetch users from Slack using the API
-        print(users)
+        #print(users)
         for user in users:
             if should_skip_user(user):
+                print("skipping user " + user)
                 continue
 
             user_id = user.get('id')
