@@ -8,22 +8,22 @@ from models import User
 client = get_slack_client()
 
 def send_quiz_to_user(user_id, team_id):
-    """Send a quiz to a user by creating quiz options and posting them to Slack."""
+    """Send a quiz to a specific user in the workspace."""
+    global quiz_answers
 
-    # Fetch colleagues excluding the user themselves
+
+    # Set up the Slack client with the correct access token
+    client = get_slack_client(team_id)
+
+    # Get all colleagues, excluding the user themselves
     colleagues = get_colleagues_excluding_user(user_id, team_id)
 
     # Check if the user already has an active quiz session
     existing_quiz = get_active_quiz_session(user_id)
+
     if existing_quiz:
         print(f"User {user_id} already has an active quiz.")
-        try:
-            client.chat_postMessage(
-                channel=user_id,
-                text="You already have an active quiz! Please answer it before requesting a new one."
-            )
-        except SlackApiError as e:
-            print(f"Error sending message to user {user_id}: {e.response['error']}")
+        send_message_to_user(client, user_id, "You already have an active quiz! Please answer it before requesting a new one.")
         return
 
     # Check if there are enough colleagues for a quiz
@@ -33,15 +33,16 @@ def send_quiz_to_user(user_id, team_id):
 
     # Select correct answer and random options
     correct_choice = random.choice(colleagues)
-    options = [correct_choice] + random.sample([col for col in colleagues if col != correct_choice], 3)
+    options = [correct_choice] + random.sample(
+        [col for col in colleagues if col != correct_choice], 3
+    )
     random.shuffle(options)
 
     # Store the correct answer in quiz_sessions
-    create_or_update_quiz_session(user_id, correct_choice.id)
+    quiz_session = create_or_update_quiz_session(user_id=user_id, correct_user_id=correct_choice.id)
 
-    # Build the Slack message with interactive buttons
+    # Build interactive message
     blocks = [
-        # Text prompt
         {
             "type": "section",
             "text": {
@@ -49,38 +50,66 @@ def send_quiz_to_user(user_id, team_id):
                 "text": "*Who's this colleague?*"
             }
         },
-        # Image block (optional)
         {
             "type": "image",
             "image_url": correct_choice.image or "https://via.placeholder.com/600",
             "alt_text": "Image of a colleague"
         },
-        # Answer buttons with a block_id
         {
             "type": "actions",
-            "block_id": "answer_buttons",  # Assign a block_id
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": option.name},
-                    "value": option.id,
-                    "action_id": f"quiz_response_{idx}"
-                }
-                for idx, option in enumerate(options)
-            ]
+            "block_id": "answer_buttons",
+            "elements": []
         }
     ]
 
-    # Send the message to the user
+    for idx, option in enumerate(options):
+        blocks[2]["elements"].append({
+            "type": "button",
+            "text": {"type": "plain_text", "text": option.name},
+            "value": option.id,
+            "action_id": f"quiz_response_{idx}"
+        })
+
+    blocks.append({
+        "type": "actions",
+        "block_id": "next_quiz_block",
+        "elements": [
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Next Quiz"},
+                "value": "next_quiz",
+                "action_id": "next_quiz"
+            }
+        ]
+    })
+
+    # Send the message to the user by opening a DM
     try:
+        response = client.conversations_open(users=[user_id])
+        channel_id = response["channel"]["id"]
+
         response = client.chat_postMessage(
-            channel=user_id,
+            channel=channel_id,
             text="Time for a quiz!",
             blocks=blocks
         )
         print(f"Message sent to user {user_id}, ts: {response['ts']}")
     except SlackApiError as e:
-        print(f"Error sending message to {user_id}: {e.response['error']}")
+        print(f"Error sending message to user {user_id}: {e.response['error']}")
+
+def send_message_to_user(client, user_id, message_text):
+    """Helper function to send a message to a user."""
+    try:
+        response = client.conversations_open(users=[user_id])
+        channel_id = response["channel"]["id"]
+
+        client.chat_postMessage(
+            channel=channel_id,
+            text=message_text
+        )
+    except SlackApiError as e:
+        print(f"Error sending message to user {user_id}: {e.response['error']}")
+
 
 def handle_quiz_response(user_id, selected_user_id, payload):
     """Handles the user's quiz response, updates scores, and modifies the Slack message to reflect the answer."""
