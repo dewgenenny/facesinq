@@ -12,16 +12,9 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///facesinq.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-#db = SQLAlchemy(app)
-#db.init_app(app)
-
 # Import the rest of your modules
-#from db import init_db, migrate_db
 from utils import fetch_and_store_users
-from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from slack_sdk.signature import SignatureVerifier
-from quiz_app import send_quiz_to_user
 from leaderboard import send_leaderboard
 from slack_client import get_slack_client, verify_slack_signature
 from game_manager import send_quiz_to_user, handle_quiz_response
