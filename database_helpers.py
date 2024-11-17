@@ -116,10 +116,10 @@ def get_top_scores(limit=10):
     """Fetch the top scoring users along with their decrypted scores."""
     with Session() as session:
         try:
-            # Query the top scores, join with User table
+            # Query the encrypted name and score columns
             top_scores = session.query(User.name_encrypted, Score.score).join(Score).order_by(Score.score.desc()).limit(limit).all()
 
-            # Decrypt usernames
+            # Decrypt the names after retrieving from the database
             decrypted_scores = []
             for name_encrypted, score in top_scores:
                 try:
