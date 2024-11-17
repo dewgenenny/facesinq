@@ -211,7 +211,7 @@ def slack_commands():
             return jsonify(response_type='ephemeral', text=f'Your current score is {score}.'), 200
         elif text == 'leaderboard':
             print("Got leaderboard request. Channel: " + channel_id )
-            send_leaderboard(channel_id)
+            send_leaderboard(channel_id, user_id)
             return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
 
     else:
