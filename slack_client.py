@@ -36,6 +36,8 @@ def handle_slack_oauth_redirect(code):
     CLIENT_ID = os.getenv("SLACK_CLIENT_ID")
     CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET")
     REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")
+
+    print(CLIENT_ID)
     try:
         # Exchange the authorization code for access tokens
         response = client.oauth_v2_access(
