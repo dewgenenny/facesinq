@@ -23,7 +23,7 @@ from slack_sdk.errors import SlackApiError
 from slack_sdk.signature import SignatureVerifier
 from quiz_app import send_quiz_to_user
 from leaderboard import send_leaderboard
-
+from slack_client import get_slack_client, verify_slack_signature
 
 import sqlite3
 
@@ -44,12 +44,11 @@ def index():
 
 @app.route('/slack/actions', methods=['POST'])
 def slack_actions():
-    # Verify the request signature to ensure it's a valid Slack request
-    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
-    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-    client = WebClient(token=SLACK_BOT_TOKEN)
-    if not signature_verifier.is_valid_request(request.get_data(), request.headers):
+    # initialise slack client
+    client = get_slack_client
+
+    # verify signature
+    if not verify_slack_signature(request):
         return jsonify({'error': 'invalid request signature'}), 403
 
     # Parse the payload
@@ -178,15 +177,11 @@ def slack_actions():
     return '', 200
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():
-    # Read environment variables inside the function
-    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
-    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-    client = WebClient(token=SLACK_BOT_TOKEN)
 
     # Verify the request signature
-    if not signature_verifier.is_valid_request(request.get_data(), request.headers):
+    if not verify_slack_signature(request):
         return jsonify({'error': 'invalid request signature'}), 403
+
 
     command = request.form.get('command')
     user_id = request.form.get('user_id')
@@ -229,11 +224,6 @@ def slack_events():
     # Get the request body and headers
     body = request.get_data()
     headers = request.headers
-    # Read environment variables inside the function
-    SLACK_SIGNING_SECRET = os.environ.get('SLACK_SIGNING_SECRET')
-    signature_verifier = SignatureVerifier(signing_secret=SLACK_SIGNING_SECRET)
-    SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-    client = WebClient(token=SLACK_BOT_TOKEN)
 
     # Parse the request body as JSON
     try:
@@ -247,7 +237,7 @@ def slack_events():
         return jsonify({'challenge': challenge}), 200
 
     # Verify the request signature
-    if not signature_verifier.is_valid_request(body, headers):
+    if not verify_slack_signature(request):
         return jsonify({'error': 'invalid request signature'}), 403
 
     # Handle event callbacks
@@ -266,8 +256,7 @@ if __name__ == '__main__':
     from apscheduler.schedulers.background import BackgroundScheduler
     with app.app_context():
         Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
-    #init_db()
-    #migrate_db()
+
     fetch_and_store_users()
 
     # Schedule the quiz
