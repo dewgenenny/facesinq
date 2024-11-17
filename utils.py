@@ -62,7 +62,7 @@ def fetch_and_store_users(team_id, update_existing=False):
 
             # Always use the correct team_id for updating/adding users
             print(f"Adding/updating user: {name} ({user_id}) for team {team_id}")
-            add_or_update_user(user_id, name, image, team_id)
+            add_or_update_user(user_id, name, image, team_id)  # Make sure `team_id` is passed correctly
 
     except SlackApiError as e:
         print(f"Failed to fetch users from Slack: {e.response['error']}")

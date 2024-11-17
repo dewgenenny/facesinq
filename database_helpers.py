@@ -171,12 +171,11 @@ def add_or_update_user(user_id, name, image, team_id):
     """Add a new user or update an existing one in the database for a specific team."""
     with Session() as session:
         try:
-            existing_user = session.query(User).filter_by(id=user_id).one_or_none()
+            existing_user = session.query(User).filter_by(id=user_id, team_id=team_id).one_or_none()  # Updated to filter by team_id
             if existing_user:
                 # Update the existing user using the provided team_id
                 existing_user.name = name
                 existing_user.image = image
-                existing_user.team_id = team_id  # Make sure the team_id is updated if needed
             else:
                 # Add a new user with the correct team_id
                 new_user = User(id=user_id, team_id=team_id, opted_in=False)
@@ -191,6 +190,7 @@ def add_or_update_user(user_id, name, image, team_id):
         except SQLAlchemyError as e:
             session.rollback()
             print(f"Database error while adding/updating user {user_id}: {str(e)}")
+
 
 
 def does_user_exist(team_id):

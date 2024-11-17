@@ -20,7 +20,7 @@ from game_manager import send_quiz_to_user, handle_quiz_response
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
     initialize_database()  # Optional: add initial setup logic if needed
-    fetch_and_store_users_for_all_workspaces(update_existing=True)
+    #fetch_and_store_users_for_all_workspaces(update_existing=True)
 
 
 
@@ -200,7 +200,8 @@ if __name__ == '__main__':
             Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
 
         # Fetch users for all workspaces
-        #fetch_and_store_users_for_all_workspaces(update_existing=True)
+        # Fetch only if database and tables are newly created or updated
+        fetch_and_store_users_for_all_workspaces(update_existing=True)
 
         # Schedule the quiz and user update tasks
         scheduler = BackgroundScheduler()
