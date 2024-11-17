@@ -5,7 +5,7 @@ import os
 import json
 from db import engine, Session, initialize_database  # Import the engine and initialization function
 from models import User, Score, QuizSession , Base # Ensure models are imported so they are registered
-
+from database_helpers import get_user, update_score, update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, get_user_name
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
@@ -36,99 +36,6 @@ with app.app_context():
 #init_db()
 #migrate_db()
 
-
-
-
-def update_user_opt_in(user_id, opt_in):
-    session = Session()  # Create a new session
-
-
-    try:
-        user = session.query(User).filter_by(id=user_id).one_or_none()  # Query using the session
-        print(f"Setting user opt-in for User ID: {user_id}")
-
-        if user:
-            user.opted_in = opt_in
-            session.commit()
-            print(f"User {user_id} opt-in updated to {opt_in}")
-        else:
-            print(f"No user found with User ID: {user_id}")
-
-    except Exception as e:
-        print(f"Error updating user opt-in for User ID: {user_id}, Error: {str(e)}")
-        session.rollback()  # Rollback in case of error
-
-    finally:
-        session.close()  # Close the session
-
-
-def has_user_opted_in(user_id):
-    session = Session()  # Create a new session
-    try:
-        user = session.query(User).filter_by(id=user_id).one_or_none()  # Query using the session
-        print(f"Getting user opt-in for User ID: {user_id}")
-        if user:
-            return user.opted_in is True
-        return False
-    except Exception as e:
-        print(f"Error fetching user opt-in for User ID: {user_id}, Error: {str(e)}")
-        return False
-    finally:
-        session.close()  # Close the session
-
-def update_score(user_id, points):
-    # Using SQLAlchemy Session instead of raw SQLite connection
-    session = Session()
-    try:
-        # Fetch the user score or create if it doesn't exist
-        score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
-
-        if score:
-            # Update the existing score
-            score.score += points
-        else:
-            # Create a new score entry
-            new_score = Score(user_id=user_id, score=points)
-            session.add(new_score)
-
-        session.commit()
-    except Exception as e:
-        print(f"Error updating score for User ID: {user_id}, Error: {str(e)}")
-        session.rollback()
-    finally:
-        session.close()
-
-
-def get_user_score(user_id):
-    session = Session()
-    try:
-        # Fetch the user score
-        score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
-        return score.score if score else 0
-    except Exception as e:
-        print(f"Error fetching score for User ID: {user_id}, Error: {str(e)}")
-        return 0
-    finally:
-        session.close()
-
-def get_opted_in_user_count():
-    session = Session()
-    try:
-        count = session.query(User).filter(User.opted_in == True).count()
-        return count
-    except Exception as e:
-        print(f"Error fetching opted-in user count: {str(e)}")
-        return 0
-    finally:
-        session.close()
-
-# Utility function to get correct name from user_id
-def get_user_name(user_id):
-    with Session() as session:
-        user = session.query(User).filter_by(id=user_id).one_or_none()
-        if user:
-            return user.name
-    return "Unknown"
 
 
 @app.route('/')
