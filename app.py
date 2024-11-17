@@ -46,8 +46,7 @@ def index():
 
 @app.route('/slack/actions', methods=['POST'])
 def slack_actions():
-    # initialise slack client
-    client = get_slack_client()
+
 
     # verify signature
     if not verify_slack_signature(request):
@@ -75,6 +74,9 @@ def slack_actions():
     if not team_id:
         # Log an error for debugging if no team_id is found
         print(f"[ERROR] team_id could not be found in the request payload: {payload}")
+
+    # initialise slack client
+    client = get_slack_client(team_id)
 
     if action['action_id'].startswith('quiz_response'):
         handle_quiz_response(user_id, selected_user_id, payload, team_id)
@@ -148,7 +150,7 @@ def slack_commands():
             return jsonify(response_type='ephemeral', text='Quiz sent!'), 200
         elif text == 'stats':
             # Handle the stats command (we'll implement this in the next section)
-            count = get_opted_in_user_count()
+            count = get_opted_in_user_count(team_id)
             return jsonify(response_type='ephemeral', text=f'There are {count} users opted in to FaceSinq quizzes.'), 200
         elif text == 'score':
             score = get_user_score(user_id)

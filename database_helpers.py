@@ -108,17 +108,18 @@ def get_user_score(user_id):
             print(f"Error fetching score for User ID: {user_id}, Error: {str(e)}")
             return 0
 
-def get_opted_in_user_count():
+def get_opted_in_user_count(team_id):
+    """Get the count of users who have opted in for a specific team."""
     session = Session()
     try:
-        count = session.query(User).filter(User.opted_in == True).count()
+        # Filter users by team_id and opted_in == True
+        count = session.query(User).filter(User.team_id == team_id, User.opted_in == True).count()
         return count
     except Exception as e:
-        print(f"Error fetching opted-in user count: {str(e)}")
+        print(f"Error fetching opted-in user count for team_id {team_id}: {str(e)}")
         return 0
     finally:
         session.close()
-
 
 def get_user(user_id):
     with Session() as session:
