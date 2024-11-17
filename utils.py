@@ -31,16 +31,18 @@ def fetch_and_store_users(update_existing=False, team_id=None):
     """
     Fetch users from Slack and store them in the database.
     """
+    if not team_id:
+        raise ValueError("team_id must be provided to fetch and store users.")
+
     # Check if users already exist in the database
     if does_user_exist() and not update_existing:
         print("Users already exist in the database. Skipping fetch from Slack.")
         return
 
-    # Otherwise, proceed with fetching users from Slack
+    # Proceed with fetching users from Slack
     try:
         users = fetch_users()  # Fetch users from Slack using the API
         for user in users:
-            # Skip users who are bots, deleted, or lack proper profile images
             if should_skip_user(user):
                 continue
 
@@ -49,8 +51,7 @@ def fetch_and_store_users(update_existing=False, team_id=None):
             profile = user.get('profile', {})
             image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-            # Add or update the user in the database using a helper function
-            add_or_update_user(user_id, name, image, team_id)
+            add_or_update_user(user_id, name, image, team_id)  # Ensure `team_id` is provided for DB operations
 
     except SlackApiError as e:
         print(f"Failed to fetch users from Slack: {e.response['error']}")

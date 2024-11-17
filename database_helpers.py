@@ -53,16 +53,14 @@ def has_user_opted_in(user_id):
         session.close()  # Close the session
 
 def get_user_score(user_id):
-    session = Session()
-    try:
-        # Fetch the user score
-        score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
-        return score.score if score else 0
-    except Exception as e:
-        print(f"Error fetching score for User ID: {user_id}, Error: {str(e)}")
-        return 0
-    finally:
-        session.close()
+    """Fetch the score of a given user."""
+    with Session() as session:
+        try:
+            score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
+            return score.score if score else 0
+        except SQLAlchemyError as e:
+            print(f"Error fetching score for User ID: {user_id}, Error: {str(e)}")
+            return 0
 
 def get_opted_in_user_count():
     session = Session()
@@ -162,15 +160,18 @@ def get_top_scores(limit=10):
 
 def add_or_update_user(user_id, name, image, team_id):
     """Add a new user or update an existing one in the database."""
+    if not team_id:
+        raise ValueError("team_id must be provided when adding or updating a user")
+
     with Session() as session:
         try:
-            # Check if user already exists
+            # Check if the user already exists
             existing_user = session.query(User).filter_by(id=user_id).one_or_none()
             if existing_user:
                 # Update the existing user
                 existing_user.name = name
                 existing_user.image = image
-                existing_user.team_id = team_id
+                existing_user.team_id = team_id  # Ensure that `team_id` is properly set
             else:
                 # Add the new user
                 new_user = User(id=user_id, name_encrypted=name, image_encrypted=image, opted_in=False, team_id=team_id)

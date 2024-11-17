@@ -180,17 +180,18 @@ if __name__ == '__main__':
     from utils import fetch_and_store_users
     from quiz_app import send_quiz
     from apscheduler.schedulers.background import BackgroundScheduler
-    with app.app_context():
-        Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
+    if __name__ == '__main__':
+        with app.app_context():
+            Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
 
-    # Fetch users for all workspaces
-    for workspace in get_all_workspaces():
-        fetch_and_store_users(team_id=workspace.id)
+        # Fetch users for all workspaces
+        for workspace in get_all_workspaces():
+            fetch_and_store_users(update_existing=True, team_id=workspace.id)  # Ensure `team_id` is provided
 
-    # Schedule the quiz and user update tasks
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(fetch_and_store_users_for_all_workspaces, 'interval', hours=2, kwargs={'update_existing': True})
-    scheduler.start()
+        # Schedule the quiz and user update tasks
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(fetch_and_store_users_for_all_workspaces, 'interval', hours=2, kwargs={'update_existing': True})
+        scheduler.start()
 
-    port = int(os.environ.get('PORT', 3000))
-    app.run(host='0.0.0.0', port=port)
+        port = int(os.environ.get('PORT', 3000))
+        app.run(host='0.0.0.0', port=port)
