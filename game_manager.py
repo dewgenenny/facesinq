@@ -182,9 +182,15 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
     # Extract channel ID and message timestamp from payload
     channel_id = payload['channel']['id']
     message_ts = payload['message']['ts']
-
+    if channel_id.startswith('D'):
+        # DM to a specific user (user ID can also start with 'D' sometimes)
+        print(f"DM detected, sending response to user ID: {channel_id}")
+    else:
+        # General channel or private channel
+        print(f"Sending response to channel ID: {channel_id}")
     # Update the original message with feedback and disabled buttons
     try:
+        print(f"Updating quiz response for user_id: {user_id}, team_id: {team_id}, channel_id: {channel_id}, message_ts: {message_ts}")
         client.chat_update(
             channel=channel_id,
             ts=message_ts,
@@ -192,7 +198,8 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
             text=feedback_text
         )
     except SlackApiError as e:
-        print(f"Error updating message: {e.response['error']}")
-
+        print(f"[ERROR] Slack API Error while updating message for user {user_id}: {e.response['error']}")
+    except Exception as e:
+        print(f"[ERROR] Unexpected error while updating message: {str(e)}")
     # Remove the stored answer (delete the quiz session)
     delete_quiz_session(user_id)
