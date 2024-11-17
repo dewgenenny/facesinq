@@ -10,6 +10,7 @@ import os
 raw_database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/facesinq.db')
 if raw_database_url.startswith("postgres://"):
     raw_database_url = raw_database_url.replace("postgres://", "postgresql://", 1)
+    print("successfully got postgres db")
 
 engine = create_engine(raw_database_url)
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -194,8 +194,8 @@ if __name__ == '__main__':
     from quiz_app import send_quiz
     from apscheduler.schedulers.background import BackgroundScheduler
     if __name__ == '__main__':
-        with app.app_context():
-            Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
+        # with app.app_context():
+        #     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
 
         # Fetch users for all workspaces
         # Fetch only if database and tables are newly created or updated
