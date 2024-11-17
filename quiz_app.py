@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from db import Session
 from models import User, QuizSession
 from slack_client import get_slack_client, verify_slack_signature
-from database_helpers import get_colleagues_excluding_user, get_active_quiz_session, create_or_update_quiz_session
+from database_helpers import get_colleagues_excluding_user, get_active_quiz_session, create_or_update_quiz_session, get_workspace_access_token
 # Define quiz_answers at the module level
 quiz_answers = {}
 
@@ -13,10 +13,20 @@ quiz_answers = {}
 
 from slack_sdk.errors import SlackApiError
 
-def send_quiz_to_user(user_id):
+from slack_sdk.errors import SlackApiError
+
+def send_quiz_to_user(user_id, team_id):
+    """Send a quiz to a specific user in the workspace."""
     global quiz_answers
 
-    # Set up the Slack client
+    # Get the workspace's access token
+    try:
+        access_token = get_workspace_access_token(team_id)
+    except ValueError as e:
+        print(f"[ERROR] Failed to retrieve access token for workspace: {str(e)}")
+        return
+
+    # Set up the Slack client with the correct access token
     client = get_slack_client()
 
     # Set up the SQLAlchemy session
@@ -24,14 +34,13 @@ def send_quiz_to_user(user_id):
 
     try:
         # Get all colleagues, excluding the user themselves
-        colleagues = session.query(User).filter(User.id != user_id).all()
+        colleagues = session.query(User).filter(User.id != user_id, User.team_id == team_id).all()
 
         # Check if the user already has an active quiz session
         existing_quiz = session.query(QuizSession).filter(QuizSession.user_id == user_id).first()
 
         if existing_quiz:
             print(f"User {user_id} already has an active quiz.")
-            # Optionally send a message to the user
             send_message_to_user(client, user_id, "You already have an active quiz! Please answer it before requesting a new one.")
             return
 
@@ -124,18 +133,6 @@ def send_message_to_user(client, user_id, message_text):
         )
     except SlackApiError as e:
         print(f"Error sending message to user {user_id}: {e.response['error']}")
-
-    # Send the message to the user
-    try:
-        response = client.chat_postMessage(
-            channel=user_id,
-            text="Time for a quiz!",
-            blocks=blocks
-        )
-        print(f"Message sent to user {user_id}, ts: {response['ts']}")
-    except SlackApiError as e:
-        print(f"Error sending message to {user_id}: {e.response['error']}")
-
 
 def send_quiz():
     global quiz_answers
