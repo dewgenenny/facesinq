@@ -13,9 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Slack bot token and client setup
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-CLIENT_ID = os.getenv("SLACK_CLIENT_ID")
-CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")
+
 
 client = WebClient(token=SLACK_BOT_TOKEN)
 
@@ -35,6 +33,9 @@ def verify_slack_signature(request):
 
 def handle_slack_oauth_redirect(code):
     """Handles Slack OAuth redirect and workspace installation"""
+    CLIENT_ID = os.getenv("SLACK_CLIENT_ID")
+    CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET")
+    REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")
     try:
         # Exchange the authorization code for access tokens
         response = client.oauth_v2_access(
