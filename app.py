@@ -4,7 +4,7 @@ import time
 import json
 from db import engine, initialize_database  # Import the engine and initialization function
 from models import Base # Ensure models are imported so they are registered
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token
+from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
