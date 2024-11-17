@@ -27,21 +27,19 @@ def fetch_users():
             print(f"Error fetching users from Slack: {e.response['error']}")
             raise e
 
-def fetch_and_store_users(update_existing=False, team_id=None):
+def fetch_and_store_users(team_id, update_existing=False):
     """
-    Fetch users from Slack and store them in the database.
+    Fetch users from Slack and store them in the database for a specific workspace.
     """
     if not team_id:
         raise ValueError("team_id must be provided to fetch and store users.")
 
-    # Check if users already exist in the database for the workspace
     if does_user_exist(team_id) and not update_existing:
         print(f"Users already exist in the database for team {team_id}. Skipping fetch from Slack.")
         return
 
-    # Otherwise, proceed with fetching users from Slack
     try:
-        users = fetch_users()  # Fetch users from Slack using the API
+        users = fetch_users(team_id)  # Fetch users from Slack using the correct team ID
         print(f"Fetched {len(users)} users from Slack for team {team_id}")
 
         for user in users:
@@ -54,7 +52,7 @@ def fetch_and_store_users(update_existing=False, team_id=None):
             profile = user.get('profile', {})
             image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-            # Add or update the user in the database
+            # Always use the correct team_id for updating/adding users
             print(f"Adding/updating user: {name} ({user_id}) for team {team_id}")
             add_or_update_user(user_id, name, image, team_id)
 
@@ -62,6 +60,7 @@ def fetch_and_store_users(update_existing=False, team_id=None):
         print(f"Failed to fetch users from Slack: {e.response['error']}")
     except Exception as e:
         print(f"An unexpected error occurred: {str(e)}")
+
 
 def should_skip_user(user):
     """Determine if a Slack user should be skipped."""

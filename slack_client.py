@@ -70,7 +70,7 @@ def handle_slack_event(event, team_id):
     event_type = event.get('type')
 
     if event_type == "team_join":
-        # Handle when a new user joins the team
+        # Handle new user joins, ensuring the correct team_id is passed
         user = event.get('user', {})
         if user:
             user_id = user.get('id')
@@ -78,7 +78,6 @@ def handle_slack_event(event, team_id):
             profile = user.get('profile', {})
             image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-            # Add or update user
             add_or_update_user(user_id, name, image, team_id)
 
     elif event_type == "user_change":
@@ -90,7 +89,6 @@ def handle_slack_event(event, team_id):
             profile = user.get('profile', {})
             image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-            # Update user details
             add_or_update_user(user_id, name, image, team_id)
 
     else:

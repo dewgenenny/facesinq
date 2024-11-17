@@ -159,21 +159,20 @@ def get_top_scores(limit=10):
 
 
 def add_or_update_user(user_id, name, image, team_id):
-    """Add a new user or update an existing one in the database."""
+    """Add a new user or update an existing one in the database for a specific team."""
     with Session() as session:
         try:
-            # Check if the user already exists
             existing_user = session.query(User).filter_by(id=user_id).one_or_none()
             if existing_user:
-                # Update the existing user using the property setters
-                existing_user.name = name  # This will use the @name.setter to encrypt
-                existing_user.image = image  # This will use the @image.setter to encrypt
-                existing_user.team_id = team_id  # This is not encrypted, direct assignment is fine
+                # Update the existing user using the provided team_id
+                existing_user.name = name
+                existing_user.image = image
+                existing_user.team_id = team_id  # Make sure the team_id is updated if needed
             else:
-                # Add a new user using property setters
+                # Add a new user with the correct team_id
                 new_user = User(id=user_id, team_id=team_id, opted_in=False)
-                new_user.name = name  # Use setter to ensure encryption
-                new_user.image = image  # Use setter to ensure encryption
+                new_user.name = name
+                new_user.image = image
                 session.add(new_user)
 
             session.commit()
@@ -183,6 +182,7 @@ def add_or_update_user(user_id, name, image, team_id):
         except SQLAlchemyError as e:
             session.rollback()
             print(f"Database error while adding/updating user {user_id}: {str(e)}")
+
 
 def does_user_exist(team_id):
     """Check if users already exist in the database for a specific team."""
