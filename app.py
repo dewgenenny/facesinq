@@ -200,7 +200,7 @@ if __name__ == '__main__':
             Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
 
         # Fetch users for all workspaces
-        fetch_and_store_users_for_all_workspaces(update_existing=True)
+        fetch_and_store_users_for_all_workspaces(update_existing=False)
 
         # Schedule the quiz and user update tasks
         scheduler = BackgroundScheduler()
