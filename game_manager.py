@@ -5,7 +5,7 @@ from database_helpers import create_or_update_quiz_session, get_colleagues_exclu
 from slack_sdk.errors import SlackApiError
 from models import User
 
-client = get_slack_client()
+
 
 def send_quiz_to_user(user_id, team_id):
     """Send a quiz to a specific user in the workspace."""
@@ -111,8 +111,10 @@ def send_message_to_user(client, user_id, message_text):
         print(f"Error sending message to user {user_id}: {e.response['error']}")
 
 
-def handle_quiz_response(user_id, selected_user_id, payload):
+def handle_quiz_response(user_id, selected_user_id, payload, team_id):
     """Handles the user's quiz response, updates scores, and modifies the Slack message to reflect the answer."""
+    # Set up the Slack client with the correct access token
+    client = get_slack_client(team_id)
 
     # Fetch the user's active quiz session
     quiz_session = get_active_quiz_session(user_id)

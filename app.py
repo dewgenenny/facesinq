@@ -63,7 +63,7 @@ def slack_actions():
     team_id = request.form.get('team_id')  # Extract team_id from the incoming Slack command
 
     if action['action_id'].startswith('quiz_response'):
-        handle_quiz_response(user_id, selected_user_id, payload)
+        handle_quiz_response(user_id, selected_user_id, payload, team_id)
 
     elif action['action_id'] == 'next_quiz':
         # Handle the "Next Quiz" button click
