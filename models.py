@@ -67,11 +67,23 @@ class QuizSession(Base):
 
 class Workspace(Base):
     __tablename__ = 'workspaces'
-    id = Column(String, primary_key=True)  # This will store the team_id
-    name = Column(String)  # Optionally, store the workspace name for reference
+    id = Column(String, primary_key=True)  # This is the workspace/team ID
+    name = Column(String, nullable=False)
+    access_token_encrypted = Column(String, nullable=False)
 
     def __repr__(self):
-        return f"<Workspace {self.name} ({self.id})>"
+        return f"<Workspace id={self.id}, name={self.name}>"
+
+    # Access token property for encryption/decryption
+    @property
+    def access_token(self):
+        # Decrypt access token when accessed
+        return fernet.decrypt(self.access_token_encrypted.encode()).decode()
+
+    @access_token.setter
+    def access_token(self, value):
+        # Encrypt access token when setting it
+        self.access_token_encrypted = fernet.encrypt(value.encode()).decode()
 
 def encrypt_value(value):
     return fernet.encrypt(value.encode()).decode() if value else None

@@ -47,9 +47,10 @@ def handle_slack_oauth_redirect(code):
         if response.get("ok"):
             team_id = response["team"]["id"]
             team_name = response["team"]["name"]
+            access_token = response["access_token"]
 
-            # Add the workspace to the database
-            add_workspace(team_id, team_name)
+            # Add the workspace to the database with access_token
+            add_workspace(team_id, team_name, access_token)
 
             # Fetch and store users for the new workspace
             print(f"Calling fetch_and_store_users for team_id: {team_id}")
@@ -64,6 +65,7 @@ def handle_slack_oauth_redirect(code):
     except Exception as e:
         print(f"Unexpected error during OAuth flow: {str(e)}")
         return False, "OAuth flow failed due to unexpected error"
+
 
 def handle_slack_event(event, team_id):
     """Handles Slack events related to user updates and team joins."""

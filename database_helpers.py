@@ -19,14 +19,28 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 #             print(f"Database error: {str(e)}")
 #             raise  # Re-raise the exception so the caller can handle it if needed
 
-def add_workspace(team_id, team_name):
-    """Add a workspace if it doesn't already exist in the database."""
+def add_workspace(team_id, team_name, access_token):
+    """Add a new workspace to the database or update an existing one."""
     with Session() as session:
-        existing_workspace = session.query(Workspace).filter_by(id=team_id).one_or_none()
-        if not existing_workspace:
-            new_workspace = Workspace(id=team_id, name=team_name)
-            session.add(new_workspace)
+        try:
+            workspace = session.query(Workspace).filter_by(id=team_id).one_or_none()
+            if workspace:
+                # Update the existing workspace
+                workspace.name = team_name
+                workspace.access_token = access_token  # Automatically encrypts the token
+            else:
+                # Add a new workspace with encrypted access token
+                new_workspace = Workspace(id=team_id, name=team_name)
+                new_workspace.access_token = access_token  # Automatically encrypts the token
+                session.add(new_workspace)
+
             session.commit()
+        except IntegrityError as e:
+            session.rollback()
+            print(f"Failed to add/update workspace {team_id}: {str(e)}")
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Database error while adding/updating workspace {team_id}: {str(e)}")
 
 def get_all_workspaces():
     """Fetch all workspaces from the database."""
@@ -34,18 +48,16 @@ def get_all_workspaces():
         return session.query(Workspace).all()
 
 def get_workspace_access_token(team_id):
-    """Get the access token for a specific Slack workspace based on the workspace ID."""
+    """Get the access token for a specific Slack workspace based on workspace ID."""
     with Session() as session:
         try:
-            # Query using the correct column name, which is `id` instead of `team_id`
             workspace = session.query(Workspace).filter_by(id=team_id).one_or_none()
             if not workspace:
                 raise ValueError(f"No workspace found for team_id: {team_id}")
-            return workspace.access_token
+            return workspace.access_token  # Automatically decrypts the token
         except Exception as e:
             print(f"[ERROR] Failed to retrieve workspace for team_id {team_id}: {str(e)}")
             raise e
-
 
 def get_user_name(user_id):
     with Session() as session:
