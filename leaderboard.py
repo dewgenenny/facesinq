@@ -7,9 +7,9 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-def send_leaderboard(channel_id, user_id=None):
-    # Get the Slack client
-    client = get_slack_client()
+def send_leaderboard(channel_id, team_id, user_id=None):
+    # Get the Slack client for the specific workspace
+    client = get_slack_client(team_id)
 
     # Check if the channel ID starts with 'D' indicating a DM
     if channel_id.startswith('D') and user_id:
