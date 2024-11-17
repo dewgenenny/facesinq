@@ -212,7 +212,8 @@ def slack_commands():
         elif text == 'leaderboard':
             print("Got leaderboard request")
             send_leaderboard(channel_id)
-            return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
+            #return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
+            return 200
 
     else:
             return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats]"), 200
