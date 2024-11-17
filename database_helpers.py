@@ -34,12 +34,17 @@ def get_all_workspaces():
         return session.query(Workspace).all()
 
 def get_workspace_access_token(team_id):
-    """Get the access token for a specific Slack workspace based on team_id."""
+    """Get the access token for a specific Slack workspace based on the workspace ID."""
     with Session() as session:
-        workspace = session.query(Workspace).filter_by(team_id=team_id).one_or_none()
-        if not workspace:
-            raise ValueError(f"No workspace found for team_id: {team_id}")
-        return workspace.access_token
+        try:
+            # Query using the correct column name, which is `id` instead of `team_id`
+            workspace = session.query(Workspace).filter_by(id=team_id).one_or_none()
+            if not workspace:
+                raise ValueError(f"No workspace found for team_id: {team_id}")
+            return workspace.access_token
+        except Exception as e:
+            print(f"[ERROR] Failed to retrieve workspace for team_id {team_id}: {str(e)}")
+            raise e
 
 
 def get_user_name(user_id):
