@@ -52,7 +52,7 @@ def send_quiz_to_user(user_id, team_id):
         },
         {
             "type": "image",
-            "image_url": correct_choice.image or "https://via.placeholder.com/600",
+            "image_url": correct_choice.image,
             "alt_text": "Image of a colleague"
         },
         {

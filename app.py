@@ -325,7 +325,6 @@ def handle_sync_users_command(user_id, team_id):
 if __name__ == '__main__':
 
     from utils import fetch_and_store_users
-    from quiz_app import send_quiz
     from apscheduler.schedulers.background import BackgroundScheduler
     if __name__ == '__main__':
         # with app.app_context():
