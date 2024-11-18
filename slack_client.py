@@ -6,7 +6,7 @@ from slack_sdk.signature import SignatureVerifier
 import logging
 from slack_sdk import WebClient
 from database_helpers import add_or_update_user, add_workspace, get_workspace_access_token
-from utils import fetch_and_store_users
+from utils import fetch_and_store_users, should_skip_user
 
 logging.basicConfig(level=logging.INFO)
 
@@ -78,26 +78,21 @@ def handle_slack_event(event, team_id):
     """Handles Slack events related to user updates and team joins."""
     event_type = event.get('type')
 
-    if event_type == "team_join":
-        # Handle new user joins, ensuring the correct team_id is passed
+    if event_type == "team_join" or event_type == "user_change":
+        # Handle new user joins or profile updates, ensuring the correct team_id is passed
         user = event.get('user', {})
         if user:
+            # Use should_skip_user() to determine if this user should be skipped
+            if should_skip_user(user):
+                print(f"Skipping user from event {event_type}: {user.get('id')} due to missing profile picture or other conditions.")
+                return
+
             user_id = user.get('id')
             name = user.get('real_name')
             profile = user.get('profile', {})
             image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
-            add_or_update_user(user_id, name, image, team_id)
-
-    elif event_type == "user_change":
-        # Handle user profile updates
-        user = event.get('user', {})
-        if user:
-            user_id = user.get('id')
-            name = user.get('real_name')
-            profile = user.get('profile', {})
-            image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
-
+            # Add or update the user only if they are valid
             add_or_update_user(user_id, name, image, team_id)
 
     else:
