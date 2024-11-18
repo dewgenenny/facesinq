@@ -180,6 +180,8 @@ def slack_commands():
                     return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
             else:
                 return jsonify({"text": "Please specify a valid user ID."}), 400
+        else:
+            return jsonify(response_type='ephemeral', text=f'You need to specify an option! Try /facesinq opt-in or /facesinq quiz for example :)'), 200
     elif command == "/facesinq-reset-quiz":
         # Check if the user is a workspace admin
         if not is_user_workspace_admin(user_id, team_id):
