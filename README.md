@@ -66,8 +66,23 @@ stringData:
   CLIENT_ID: "..."
   CLIENT_SECRET: "..."
   REDIRECT_URI: "https://your-domain.com/slack/oauth_redirect"
-  ENCRYPTION_KEY: "..." # Generate with python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+  # Generate key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+  ENCRYPTION_KEY: "..." 
 ```
+
+### Generating an Encryption Key
+
+You must generate a valid Fernet key for the `ENCRYPTION_KEY` variable. You can do this using Python:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Alternatively, you can run the included helper script:
+```bash
+python create_encryption_key.py
+```
+
 
 Apply the secret:
 ```bash
