@@ -19,7 +19,7 @@ spec:
         namespace: facesinq
       containers:
       - name: facesinq
-        image: facesinq:latest # Replace with your actual image registry path
+        image: ghcr.io/dewgenenny/facesinq:latest # Replace with your actual image registry path
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
