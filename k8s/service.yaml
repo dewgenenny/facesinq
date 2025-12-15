@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: facesinq
+  labels:
+    app: facesinq
+spec:
+  selector:
+    app: facesinq
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: ClusterIP

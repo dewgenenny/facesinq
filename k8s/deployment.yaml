@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facesinq
+  labels:
+    app: facesinq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: facesinq
+  template:
+    metadata:
+      labels:
+        app: facesinq
+    spec:
+      containers:
+      - name: facesinq
+        image: facesinq:latest # Replace with your actual image registry path
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: facesinq-secrets
+              key: DATABASE_URL
+        - name: SLACK_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: facesinq-secrets
+              key: SLACK_BOT_TOKEN
+        - name: SLACK_SIGNING_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: facesinq-secrets
+              key: SLACK_SIGNING_SECRET
+        - name: CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: facesinq-secrets
+              key: CLIENT_ID
+        - name: CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: facesinq-secrets
+              key: CLIENT_SECRET
+        - name: REDIRECT_URI
+          valueFrom:
+            secretKeyRef:
+              name: facesinq-secrets
+              key: REDIRECT_URI
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: facesinq-secrets
+              key: ENCRYPTION_KEY

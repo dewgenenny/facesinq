@@ -8,7 +8,9 @@ from database_helpers import update_user_opt_in, get_user_score, get_opted_in_us
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///facesinq.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///facesinq.db')
+if app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 last_sync_times = {}
