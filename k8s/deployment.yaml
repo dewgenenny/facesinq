@@ -16,6 +16,7 @@ spec:
     spec:
       imagePullSecrets:
       - name: ghcr-secret
+        namespace: facesinq
       containers:
       - name: facesinq
         image: facesinq:latest # Replace with your actual image registry path
