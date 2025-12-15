@@ -38,15 +38,14 @@ The application is containerized and ready for deployment on Kubernetes via Argo
 
 ### 1. Build and Push Docker Image
 
-Build the Docker image and push it to your container registry.
+The Docker image is automatically built and pushed to GitHub Container Registry (GHCR) via GitHub Actions on every push to `main`.
 
-```bash
-docker build -t your-registry/facesinq:latest .
-docker push your-registry/facesinq:latest
-```
+**Image Path:** `ghcr.io/<your-github-username>/facesinq:latest`
 
 > [!NOTE]
-> Ensure you update the `image` field in `k8s/deployment.yaml` to match your registry path.
+> Ensure you update the `image` field in `k8s/deployment.yaml` to match this path.
+
+To trigger a manual build, simply push a commit to the `main` branch.
 
 ### 2. Configure Secrets
 
