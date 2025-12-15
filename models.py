@@ -1,13 +1,35 @@
+# models.py
+import logging
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from db import Base
 from cryptography.fernet import Fernet
 import os
+import binascii
+
+logger = logging.getLogger(__name__)
 
 # Load encryption key from environment variable
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
 
-fernet = Fernet(ENCRYPTION_KEY)
+if ENCRYPTION_KEY:
+    ENCRYPTION_KEY = ENCRYPTION_KEY.strip()  # Remove potential surrounding whitespace/newlines
+
+try:
+    if not ENCRYPTION_KEY:
+        raise ValueError("ENCRYPTION_KEY environment variable is missing.")
+    
+    fernet = Fernet(ENCRYPTION_KEY)
+    logger.info("Encryption key loaded and verified successfully.")
+
+except (ValueError, binascii.Error) as e:
+    logger.critical(f"Invalid ENCRYPTION_KEY: {e}. Ensure it is a 32-byte url-safe base64-encoded string. Key length: {len(ENCRYPTION_KEY) if ENCRYPTION_KEY else 0}")
+    # We might want to re-raise or handle this gracefully depending on app requirements
+    # Re-raising to ensure the app doesn't start with broken encryption
+    raise e
+except Exception as e:
+    logger.critical(f"Unexpected error loading encryption key: {e}")
+    raise e
 
 class User(Base):
     __tablename__ = 'users'
