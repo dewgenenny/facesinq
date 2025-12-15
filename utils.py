@@ -1,3 +1,4 @@
+# utils.py
 import os
 from tenacity import retry, stop_after_attempt, wait_exponential
 from slack_sdk import WebClient
@@ -6,6 +7,9 @@ from db import engine
 from models import Base
 from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces, get_workspace_access_token
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Slack API Client setup
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -24,10 +28,10 @@ def extract_user_id_from_text(text):
             # Handle the case where the user ID is provided directly
             return text.strip()
         else:
-            print(f"[ERROR] Unable to extract user ID from text: {text}")
+            logger.warning(f"Unable to extract user ID from text: {text}")
             return None
     except Exception as e:
-        print(f"[ERROR] Exception while extracting user ID: {str(e)}")
+        logger.error(f"Exception while extracting user ID: {str(e)}")
         return None
 
 
@@ -41,7 +45,7 @@ def fetch_users(team_id):
         if not access_token:
             raise ValueError(f"No access token found for team_id: {team_id}")
 
-        print(f"[DEBUG] Fetching users for team_id: {team_id} using access token: {access_token[:6]}...")
+        logger.info(f"Fetching users for team_id: {team_id} using access token: {access_token[:6]}...")
 
         # Create a Slack client for this specific workspace
         client = WebClient(token=access_token)
@@ -50,33 +54,33 @@ def fetch_users(team_id):
         response = client.users_list()
 
         # Log entire response for debugging purposes
-        print(f"[DEBUG] Slack API response for team_id {team_id}: {response}")
+        logger.debug(f"Slack API response for team_id {team_id}: {response}")
 
         if not response.get("ok"):
-            raise Exception(f"[ERROR] Slack API response not OK: {response}")
+            raise Exception(f"Slack API response not OK: {response}")
 
         # Extract and return members list if the response is successful
         members = response.get("members", [])
-        print(f"[DEBUG] Successfully fetched {len(members)} users for team_id {team_id}")
+        logger.info(f"Successfully fetched {len(members)} users for team_id {team_id}")
 
         return members
 
     except SlackApiError as e:
         if e.response.status_code == 429:  # HTTP 429 Too Many Requests
             retry_after = int(e.response.headers.get('Retry-After', 20))  # Slack tells you how long to wait
-            print(f"[DEBUG] Rate limited. Waiting for {retry_after} seconds before retrying.")
+            logger.warning(f"Rate limited. Waiting for {retry_after} seconds before retrying.")
             raise e  # Let tenacity handle the retry timing with exponential backoff
         else:
             # Handle other Slack API errors
-            print(f"[ERROR] Slack API error for team_id {team_id}: {e.response['error']}")
+            logger.error(f"Slack API error for team_id {team_id}: {e.response['error']}")
             raise e
 
     except ValueError as e:
-        print(f"[ERROR] ValueError: {str(e)}")
+        logger.error(f"ValueError: {str(e)}")
         raise e
 
     except Exception as e:
-        print(f"[ERROR] Unexpected error occurred while fetching users for team_id {team_id}: {str(e)}")
+        logger.exception(f"Unexpected error occurred while fetching users for team_id {team_id}: {str(e)}")
         raise e
 
 
@@ -89,17 +93,17 @@ def fetch_and_store_users(team_id, update_existing=False):
 
     # Check if users already exist in the DB and skip fetching if update is not needed
     if does_user_exist(team_id) and not update_existing:
-        print(f"Users already exist in the database for team {team_id}. Skipping fetch from Slack.")
+        logger.info(f"Users already exist in the database for team {team_id}. Skipping fetch from Slack.")
         return
 
     try:
         users = fetch_users(team_id)  # Fetch users from Slack using the correct team ID
-        print(f"Fetched {len(users)} users from Slack for team {team_id}")
+        logger.info(f"Fetched {len(users)} users from Slack for team {team_id}")
 
         for user in users:
             # Use the updated should_skip_user function to filter users more precisely
             if should_skip_user(user):
-                print(f"Skipping user: {user.get('real_name', 'Unknown')} ({user.get('id')})")
+                logger.debug(f"Skipping user: {user.get('real_name', 'Unknown')} ({user.get('id')})")
                 continue
 
             user_id = user.get('id')
@@ -111,15 +115,15 @@ def fetch_and_store_users(team_id, update_existing=False):
 
             # Always use the correct team_id for updating/adding users
             try:
-                print(f"Adding/updating user: {name} ({user_id}) for team {team_id}")
+                logger.debug(f"Adding/updating user: {name} ({user_id}) for team {team_id}")
                 add_or_update_user(user_id, name, image, team_id)  # Make sure `team_id` is passed correctly
             except Exception as e:
-                print(f"[ERROR] Failed to add/update user {user_id}: {str(e)}")
+                logger.error(f"Failed to add/update user {user_id}: {str(e)}")
 
     except SlackApiError as e:
-        print(f"[ERROR] Failed to fetch users from Slack: {e.response['error']}")
+        logger.error(f"Failed to fetch users from Slack: {e.response['error']}")
     except Exception as e:
-        print(f"[ERROR] An unexpected error occurred: {str(e)}")
+        logger.exception(f"An unexpected error occurred: {str(e)}")
 
 
 
@@ -138,7 +142,7 @@ def should_skip_user(user):
 
     # Skip users who do not have a real profile photo set (e.g., a placeholder like Gravatar)
     if not image or "secure.gravatar.com" in image:
-        print("Discounting profile - image is: " + image)
+        logger.debug(f"Discounting profile - image is: {image}")
         return True
 
     # If none of the above conditions are met, the user should not be skipped

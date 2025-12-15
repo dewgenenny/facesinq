@@ -2,9 +2,15 @@ from flask import Flask, request, jsonify
 import os
 import time
 import json
-from db import engine, initialize_database  # Import the engine and initialization function
-from models import Base # Ensure models are imported so they are registered
+from db import engine, initialize_database
+from models import Base
 from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
@@ -12,6 +18,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+logger.info("Starting FaceSinq application...")
+logger.info(f"Database URI configured: {'postgresql://...' if 'postgres' in app.config['SQLALCHEMY_DATABASE_URI'] else 'sqlite'}")
 
 last_sync_times = {}
 
@@ -36,7 +45,7 @@ def oauth_redirect():
     success, message = handle_slack_oauth_redirect(code)
 
     if success:
-        print("received oauth request")
+        logger.info("received oauth request")
         return message, 200
     else:
         return jsonify({"error": message}), 400
@@ -48,14 +57,15 @@ def index():
 
 @app.route('/slack/actions', methods=['POST'])
 def slack_actions():
-
-
     # verify signature
     if not verify_slack_signature(request):
+        logger.warning("Invalid request signature in slack_actions")
         return jsonify({'error': 'invalid request signature'}), 403
 
     # Parse the payload
     payload = json.loads(request.form.get('payload'))
+    logger.debug(f"Received slack_actions payload: {payload}")
+
     action = payload['actions'][0]
     user_id = payload['user']['id']
     selected_user_id = action['value']
@@ -75,7 +85,7 @@ def slack_actions():
 
     if not team_id:
         # Log an error for debugging if no team_id is found
-        print(f"[ERROR] team_id could not be found in the request payload: {payload}")
+        logger.error(f"team_id could not be found in the request payload: {payload}")
 
     # initialise slack client
     client = get_slack_client(team_id)
@@ -105,7 +115,7 @@ def slack_actions():
                     element['style'] = 'primary'
                     break
         else:
-            print("Next Quiz action block not found.")
+            logger.warning("Next Quiz action block not found.")
 
 
         # Update the message
@@ -117,7 +127,7 @@ def slack_actions():
                 text="Here's your next quiz!"
             )
         except SlackApiError as e:
-            print(f"Error updating message: {e.response['error']}")
+            logger.error(f"Error updating message: {e.response['error']}")
     else:
         # Handle other actions if any
         return '', 200
@@ -127,6 +137,7 @@ def slack_commands():
 
     # Verify the request signature
     if not verify_slack_signature(request):
+        logger.warning("Invalid request signature in slack_commands")
         return jsonify({'error': 'invalid request signature'}), 403
 
 
@@ -135,6 +146,8 @@ def slack_commands():
     text = request.form.get('text').strip().lower()
     channel_id = request.form.get('channel_id')  # Extract channel_id from the incoming Slack command
     team_id = request.form.get('team_id')  # Extract team_id from the incoming Slack command
+    
+    logger.info(f"Received command: {command} text: {text} user: {user_id} team: {team_id}")
 
     if command == '/facesinq':
         if text == 'opt-in':
@@ -158,7 +171,7 @@ def slack_commands():
             score = get_user_score(user_id)
             return jsonify(response_type='ephemeral', text=f'Your current score is {score}.'), 200
         elif text == 'leaderboard':
-            print("Got leaderboard request. Channel: " + channel_id )
+            logger.info("Got leaderboard request. Channel: " + channel_id )
             send_leaderboard(channel_id=channel_id, user_id=user_id, team_id=team_id)
             return jsonify(response_type='ephemeral', text=f'Leaderboard sent'), 200
         elif text == "sync-users":
@@ -222,15 +235,18 @@ def slack_events():
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
+        logger.error('Invalid JSON received in slack_events')
         return jsonify({'error': 'invalid JSON'}), 400
 
     # Handle URL verification challenge
     if data.get('type') == 'url_verification':
         challenge = data.get('challenge')
+        logger.info('Handling URL verification challenge')
         return jsonify({'challenge': challenge}), 200
 
     # Verify the request signature
     if not verify_slack_signature(request):
+        logger.warning('Invalid request signature in slack_events')
         return jsonify({'error': 'invalid request signature'}), 403
 
     # Handle event callbacks
@@ -249,6 +265,8 @@ def slack_install():
     team_id = request.form.get('team_id')
     team_name = request.form.get('team_name')
 
+    logger.info(f'Slack install triggered for team: {team_name} ({team_id})')
+
     add_workspace(team_id, team_name)
 
     return "App Installed Successfully", 200
@@ -262,7 +280,7 @@ def handle_sync_users_command(user_id, team_id):
     # Ensure the workspace is recorded in the database
     if not does_workspace_exist(team_id):
         # If the workspace is not found, add it to the database using available information
-        print("No workspace found, trying to add")
+        logger.info("No workspace found, trying to add")
         try:
             # Fetch the team info from Slack API to get team name and access token
             access_token = get_user_access_token(user_id)  # Get the user's access token
@@ -282,15 +300,18 @@ def handle_sync_users_command(user_id, team_id):
             add_workspace(team_id, team_name, access_token)
 
         except SlackApiError as e:
+            logger.error(f'Slack API Error: {e.response["error"]}')
             return jsonify({
                 'response_type': 'ephemeral',
                 'text': f"Failed to retrieve workspace information from Slack: {e.response['error']}"
             })
         except Exception as e:
+            logger.exception(f'Error adding workspace: {str(e)}')
             return jsonify({
                 'response_type': 'ephemeral',
                 'text': f"An unexpected error occurred while adding the workspace: {str(e)}"
             })
+
 
     # Rate limit check: Ensure the command is not called too often
     if team_id in last_sync_times:
