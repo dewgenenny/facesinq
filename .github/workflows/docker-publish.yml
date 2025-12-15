@@ -2,11 +2,11 @@ name: Docker
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master" ]
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -61,7 +61,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
             type=ref,event=branch
             type=ref,event=tag
             type=sha,format=long

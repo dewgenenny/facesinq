@@ -45,7 +45,7 @@ The Docker image is automatically built and pushed to GitHub Container Registry 
 > [!NOTE]
 > Ensure you update the `image` field in `k8s/deployment.yaml` to match this path.
 
-To trigger a manual build, simply push a commit to the `main` branch.
+To trigger a manual build, simply push a commit to the `master` branch.
 
 ### 2. Configure Secrets
 
