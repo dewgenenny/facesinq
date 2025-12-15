@@ -21,6 +21,28 @@ FaceSinq is a Slack bot designed to help team members learn each other's names a
   - `/facesinq sync-users`: Manually trigger a user sync (rate-limited).
   - `/facesinq reset-quiz @user`: Reset a user's quiz session (Admin only).
 
+  - `/facesinq reset-quiz @user`: Reset a user's quiz session (Admin only).
+
+## Slack Configuration
+
+### 1. Bot Token Scopes
+You must add the following **Bot Token Scopes** to your Slack App:
+
+- `chat:write`: To send messages and quizzes.
+- `users:read`: To sync user profiles (names and avatars).
+- `team:read`: To get the workspace name.
+- `commands`: To enable slash commands.
+- `im:write`: To start direct message conversations with users.
+
+### 2. Event Subscriptions
+Enable **Event Subscriptions** and subscribe to the following bot events:
+
+- `team_join`: To detect new users joining the workspace.
+- `user_change`: To update stats when a user's profile changes.
+
+### 3. Interactivity
+Enable **Interactivity** in your Slack App settings to support quiz buttons. Use `https://<your-domain>/slack/actions` as the Request URL.
+
 ## Deployment
 
 The application is containerized and ready for deployment on Kubernetes via ArgoCD.
