@@ -347,22 +347,23 @@ def handle_sync_users_command(user_id, team_id):
         })
 
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
+# Initialize and start scheduler for background tasks
+scheduler = BackgroundScheduler()
+scheduler.add_job(fetch_and_store_users_for_all_workspaces, 'interval', hours=1, kwargs={'update_existing': True})
+scheduler.start()
+logger.info("BackgroundScheduler started.")
+
+# Perform an initial user sync on startup
+# This ensures that when the pod restarts/deploys, we attempt to fetch users immediately
+try:
+    logger.info("Initiating startup user sync...")
+    fetch_and_store_users_for_all_workspaces(update_existing=True)
+    logger.info("Startup user sync completed.")
+except Exception as e:
+    logger.error(f"Startup user sync failed: {e}")
+
 if __name__ == '__main__':
-
-    from utils import fetch_and_store_users
-    from apscheduler.schedulers.background import BackgroundScheduler
-    if __name__ == '__main__':
-        # with app.app_context():
-        #     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
-
-        # Fetch users for all workspaces
-        # Fetch only if database and tables are newly created or updated
-        fetch_and_store_users_for_all_workspaces(update_existing=True)
-
-        # Schedule the quiz and user update tasks
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(fetch_and_store_users_for_all_workspaces, 'interval', hours=1, kwargs={'update_existing': True})
-        scheduler.start()
-
-        port = int(os.environ.get('PORT', 3000))
-        app.run(host='0.0.0.0', port=port)
+    port = int(os.environ.get('PORT', 3000))
+    app.run(host='0.0.0.0', port=port)

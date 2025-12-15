@@ -20,7 +20,7 @@ spec:
       containers:
       - name: facesinq
         image: ghcr.io/dewgenenny/facesinq:latest # Replace with your actual image registry path
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
         env:
