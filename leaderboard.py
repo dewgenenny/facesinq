@@ -35,11 +35,21 @@ def get_leaderboard_blocks():
         })
     else:
         for idx, (name, percentage, image_url, score, total_attempts) in enumerate(top_scores):
+            # Add medals for top 3
+            if idx == 0:
+                rank_display = "🥇"
+            elif idx == 1:
+                rank_display = "🥈"
+            elif idx == 2:
+                rank_display = "🥉"
+            else:
+                rank_display = f"{idx + 1}."
+
             section = {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*{idx + 1}. {name}*\n{percentage:.1f}% ({score}/{total_attempts})"
+                    "text": f"*{rank_display} {name}*\n*{percentage:.1f}%* ({score}/{total_attempts})"
                 }
             }
             
@@ -52,5 +62,16 @@ def get_leaderboard_blocks():
             
             blocks.append(section)
             blocks.append({"type": "divider"})
+
+        # Add footer context
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "Keep playing to climb the ranks! Type `/facesinq quiz` to play."
+                }
+            ]
+        })
 
     return blocks

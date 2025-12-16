@@ -220,10 +220,10 @@ def slack_commands():
                 else:
                     return jsonify(response_type='ephemeral', text='Failed to opt-in. Could not fetch user details.'), 200
             
-            return jsonify(response_type='ephemeral', text='You have subscribed to random FaceSinq quizzes! You will receive them during office hours.'), 200
+            return jsonify(response_type='ephemeral', text='✅ You\'re in! Get ready for some random quizzes! 🚀'), 200
         elif text == 'opt-out':
             update_user_opt_in(user_id, False)
-            return jsonify(response_type='ephemeral', text='You have unsubscribed from random FaceSinq quizzes.'), 200
+            return jsonify(response_type='ephemeral', text='🔕 You\'ve opted out. We\'ll miss you! Type `/facesinq opt-in` anytime to join back in.'), 200
         elif text == 'quiz':
             # Send a quiz to the user (no opt-in required for manual quizzes)
             success, message = send_quiz_to_user(user_id, team_id)

@@ -50,7 +50,7 @@ def send_quiz_to_user(user_id, team_id):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Who's this colleague?*"
+                "text": "🤔 *Who is this colleague?*"
             }
         },
         {
@@ -170,10 +170,10 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
 
     # Add feedback text at the top
     if is_correct:
-        feedback_text = "🎉 Correct! You really know your colleagues!"
+        feedback_text = "🎉 *Correct!* You really know your colleagues! 🌟"
     else:
         correct_name = get_user_name(correct_user_id)
-        feedback_text = f"❌ Nope! This is your amazing colleague called *{correct_name}*."
+        feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀"
 
     # Insert feedback text at the top of the blocks
     original_blocks.insert(0, {
