@@ -164,3 +164,38 @@ if __name__ == '__main__':
 
     # Fetch and store Slack users if not already present
     #fetch_and_store_users()
+    
+def fetch_and_store_single_user(user_id, team_id):
+    """Fetch a single user from Slack and store them in the database."""
+    try:
+        # Get the workspace access token
+        access_token = get_workspace_access_token(team_id)
+        if not access_token:
+            logger.error(f"No access token found for team_id: {team_id}")
+            return False
+
+        client = WebClient(token=access_token)
+        response = client.users_info(user=user_id)
+
+        if not response.get("ok"):
+            logger.error(f"Failed to fetch user info for {user_id}: {response.get('error')}")
+            return False
+
+        user = response.get("user")
+        if not user:
+            logger.error(f"No user object in response for {user_id}")
+            return False
+
+        # Extract details
+        name = user.get('real_name')
+        profile = user.get('profile', {})
+        image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
+
+        # Add or update user
+        add_or_update_user(user_id, name, image, team_id)
+        logger.info(f"Successfully fetched and stored user: {name} ({user_id})")
+        return True
+
+    except Exception as e:
+        logger.exception(f"Error fetching single user {user_id}: {str(e)}")
+        return False

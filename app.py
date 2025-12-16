@@ -25,7 +25,7 @@ logger.info(f"Database URI configured: {'postgresql://...' if 'postgres' in app.
 last_sync_times = {}
 
 # Import the rest of your modules
-from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces, extract_user_id_from_text
+from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces, extract_user_id_from_text, fetch_and_store_single_user
 from slack_sdk.errors import SlackApiError
 from leaderboard import send_leaderboard
 from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event, is_user_workspace_admin
@@ -151,7 +151,14 @@ def slack_commands():
 
     if command == '/facesinq':
         if text == 'opt-in':
-            update_user_opt_in(user_id, True)
+            if not update_user_opt_in(user_id, True):
+                # User not found, try to fetch them
+                logger.info(f"User {user_id} not found during opt-in. Fetching from Slack...")
+                if fetch_and_store_single_user(user_id, team_id):
+                    update_user_opt_in(user_id, True)
+                else:
+                    return jsonify(response_type='ephemeral', text='Failed to opt-in. Could not fetch user details.'), 200
+            
             return jsonify(response_type='ephemeral', text='You have opted in to FaceSinq quizzes!'), 200
         elif text == 'opt-out':
             update_user_opt_in(user_id, False)

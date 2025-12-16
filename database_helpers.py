@@ -144,8 +144,10 @@ def update_user_opt_in(user_id, opt_in):
                 user.opted_in = opt_in
                 session.commit()
                 print(f"User {user_id} opt-in updated to {opt_in}")
+                return True
             else:
                 print(f"No user found with User ID: {user_id}")
+                return False
 
         except SQLAlchemyError as e:
             print(f"Error updating user opt-in for User ID: {user_id}, Error: {str(e)}")
