@@ -16,7 +16,6 @@ spec:
     spec:
       imagePullSecrets:
       - name: ghcr-secret
-        namespace: facesinq
       containers:
       - name: facesinq
         image: ghcr.io/dewgenenny/facesinq:latest # Replace with your actual image registry path
@@ -27,10 +26,7 @@ spec:
         - name: PORT
           value: "3000"
         - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: facesinq-secrets
-              key: DATABASE_URL
+          value: "sqlite:////data/facesinq.db"
         - name: SLACK_BOT_TOKEN
           valueFrom:
             secretKeyRef:
@@ -61,3 +57,10 @@ spec:
             secretKeyRef:
               name: facesinq-secrets
               key: ENCRYPTION_KEY
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: facesinq-pvc
