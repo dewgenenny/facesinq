@@ -40,7 +40,7 @@ with app.app_context():
 
 def get_welcome_message_blocks():
     """Generate the blocks for the welcome message."""
-    images = get_random_user_images(3)
+    images = get_random_user_images(10)
     
     blocks = [
         {
@@ -69,7 +69,7 @@ def get_welcome_message_blocks():
                 "alt_text": "Colleague photo"
             })
         
-        # Context block for images (max 10 elements, we have 3)
+        # Context block for images (max 10 elements)
         blocks.append({
             "type": "context",
             "elements": image_elements
