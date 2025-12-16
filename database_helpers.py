@@ -139,6 +139,32 @@ def get_random_user_images(limit=3):
             print(f"Error fetching random user images: {str(e)}")
             return []
 
+def get_global_stats():
+    """Fetch global statistics for the game."""
+    from sqlalchemy import func
+    with Session() as session:
+        try:
+            # Total players (users with at least one attempt)
+            total_players = session.query(Score).filter(Score.total_attempts > 0).count()
+            
+            # Total questions answered
+            total_questions = session.query(func.sum(Score.total_attempts)).scalar() or 0
+            
+            # Total correct answers (score represents correct answers)
+            total_correct = session.query(func.sum(Score.score)).scalar() or 0
+            
+            # Average accuracy
+            accuracy = (total_correct / total_questions * 100) if total_questions > 0 else 0.0
+            
+            return {
+                'players': total_players,
+                'questions': total_questions,
+                'accuracy': accuracy
+            }
+        except SQLAlchemyError as e:
+            print(f"Error fetching global stats: {str(e)}")
+            return {'players': 0, 'questions': 0, 'accuracy': 0.0}
+
 def get_opted_in_user_count(team_id):
     """Get the count of users who have opted in for a specific team."""
     session = Session()

@@ -4,7 +4,7 @@ import time
 import json
 from db import engine, initialize_database
 from models import Base
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images
+from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images, get_global_stats
 import logging
 
 # Configure logging
@@ -82,6 +82,17 @@ def get_welcome_message_blocks():
             "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes during office hours.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq leaderboard` - See who knows the team best (requires 10+ attempts).\n• `/facesinq stats` - See how many people are playing.\n• `/facesinq score` - Check your own score."
         }
     })
+
+    # Add global stats
+    stats = get_global_stats()
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f"*Community Stats:*\n🏆 {stats['players']} people playing\n📚 {stats['questions']} questions answered\n🎯 {stats['accuracy']:.1f}% average accuracy"
+        }
+    })
+    
     return blocks
 
 @app.route('/slack/oauth_redirect', methods=['GET'])
