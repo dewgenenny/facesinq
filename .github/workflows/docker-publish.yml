@@ -93,3 +93,23 @@ jobs:
         # This step uses the identity token to provision an ephemeral certificate
         # against the sigstore community Fulcio instance.
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Update Deployment Image
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          
+          # Extract the SHA tag (assuming it's one of the tags generated)
+          # The meta step generates multiple tags, we want the one with sha- prefix usually, or just the short sha
+          # But here we can use the digest or a specific tag. Let's use the sha tag.
+          # steps.meta.outputs.version is the version (e.g. master, v1.2.3, or sha-xxxx)
+          
+          NEW_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(git rev-parse --short HEAD)"
+          
+          # Update the deployment.yaml file
+          sed -i "s|image: .*|image: $NEW_IMAGE|g" k8s/deployment.yaml
+          
+          git add k8s/deployment.yaml
+          git commit -m "Update deployment image to $NEW_IMAGE"
+          git push
