@@ -6,16 +6,51 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-def get_leaderboard_text():
+def get_leaderboard_blocks():
     # Get the top scores from the database
     top_scores = get_top_scores(10)
 
-    # Construct the leaderboard message
-    leaderboard_text = "*🏆 Leaderboard:*\n"
+    # Construct the leaderboard blocks
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "🏆 Leaderboard",
+                "emoji": True
+            }
+        },
+        {
+            "type": "divider"
+        }
+    ]
+
     if not top_scores:
-        leaderboard_text += "_No scores available yet._"
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "_No scores available yet._"
+            }
+        })
     else:
-        for idx, (name, score) in enumerate(top_scores):
-            leaderboard_text += f"{idx + 1}. {name} - {score} points\n"
+        for idx, (name, score, image_url) in enumerate(top_scores):
+            section = {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*{idx + 1}. {name}*\n{score} points"
+                }
+            }
             
-    return leaderboard_text
+            if image_url:
+                section["accessory"] = {
+                    "type": "image",
+                    "image_url": image_url,
+                    "alt_text": name
+                }
+            
+            blocks.append(section)
+            blocks.append({"type": "divider"})
+
+    return blocks

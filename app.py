@@ -27,7 +27,7 @@ last_sync_times = {}
 # Import the rest of your modules
 from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces, extract_user_id_from_text, fetch_and_store_single_user
 from slack_sdk.errors import SlackApiError
-from leaderboard import get_leaderboard_text
+from leaderboard import get_leaderboard_blocks
 from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event, is_user_workspace_admin
 from game_manager import send_quiz_to_user, handle_quiz_response
 
@@ -176,8 +176,8 @@ def slack_commands():
             return jsonify(response_type='ephemeral', text=f'Your current score is {score}.'), 200
         elif text == 'leaderboard':
             logger.info("Got leaderboard request. Channel: " + channel_id )
-            leaderboard_text = get_leaderboard_text()
-            return jsonify(response_type='in_channel', text=leaderboard_text), 200
+            leaderboard_blocks = get_leaderboard_blocks()
+            return jsonify(response_type='in_channel', blocks=leaderboard_blocks), 200
         elif text == "sync-users":
             handle_sync_users_command(user_id, team_id)
             return jsonify(response_type='ephemeral', text=f'Syncing users'), 200

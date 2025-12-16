@@ -209,18 +209,19 @@ def get_top_scores(limit=10):
     """Fetch the top scoring users along with their decrypted scores."""
     with Session() as session:
         try:
-            # Query the encrypted name and score columns
-            top_scores = session.query(User.name_encrypted, Score.score).join(Score).order_by(Score.score.desc()).limit(limit).all()
+            # Query the encrypted name, encrypted image, and score columns
+            top_scores = session.query(User.name_encrypted, User.image_encrypted, Score.score).join(Score).order_by(Score.score.desc()).limit(limit).all()
 
-            # Decrypt the names after retrieving from the database
+            # Decrypt the names and images after retrieving from the database
             decrypted_scores = []
-            for name_encrypted, score in top_scores:
+            for name_encrypted, image_encrypted, score in top_scores:
                 try:
                     name_decrypted = decrypt_value(name_encrypted)
-                    decrypted_scores.append((name_decrypted, score))
+                    image_decrypted = decrypt_value(image_encrypted)
+                    decrypted_scores.append((name_decrypted, score, image_decrypted))
                 except Exception as e:
-                    print(f"Error decrypting name: {str(e)}")
-                    decrypted_scores.append(("Unknown", score))  # Handle decryption errors gracefully
+                    print(f"Error decrypting name or image: {str(e)}")
+                    decrypted_scores.append(("Unknown", score, None))  # Handle decryption errors gracefully
 
             return decrypted_scores
 
