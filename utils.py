@@ -5,7 +5,8 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from db import engine
 from models import Base
-from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces, get_workspace_access_token
+import os
+from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces, get_workspace_access_token, add_workspace
 import re
 import logging
 
@@ -169,7 +170,30 @@ def fetch_and_store_single_user(user_id, team_id):
     """Fetch a single user from Slack and store them in the database."""
     try:
         # Get the workspace access token
-        access_token = get_workspace_access_token(team_id)
+        try:
+            access_token = get_workspace_access_token(team_id)
+        except ValueError:
+            # Workspace not found, try to add it using default bot token
+            logger.info(f"Workspace {team_id} not found. Attempting to fetch info and add it.")
+            default_token = os.environ.get('SLACK_BOT_TOKEN')
+            if not default_token:
+                logger.error("SLACK_BOT_TOKEN not set, cannot recover missing workspace.")
+                return False
+            
+            client = WebClient(token=default_token)
+            team_info = client.team_info(team=team_id)
+            if not team_info.get('ok'):
+                logger.error(f"Failed to fetch team info for {team_id}: {team_info.get('error')}")
+                return False
+            
+            team_name = team_info['team']['name']
+            # For single-workspace install, we assume the bot token is the access token for this workspace
+            # Or we can leave access_token empty if we rely on SLACK_BOT_TOKEN fallback in get_slack_client
+            # But add_workspace requires a token. Let's use the default token.
+            add_workspace(team_id, team_name, default_token)
+            access_token = default_token
+            logger.info(f"Added missing workspace: {team_name} ({team_id})")
+
         if not access_token:
             logger.error(f"No access token found for team_id: {team_id}")
             return False
