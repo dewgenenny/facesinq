@@ -19,7 +19,7 @@ spec:
       - name: ghcr-secret
       containers:
       - name: facesinq
-        image: ghcr.io/dewgenenny/facesinq:sha-cc5c6fd
+        image: ghcr.io/dewgenenny/facesinq:sha-7d662ca
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
