@@ -1,6 +1,6 @@
 # models.py
 import logging
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from db import Base
 from cryptography.fernet import Fernet
@@ -38,6 +38,8 @@ class User(Base):
     name_encrypted = Column(String, nullable=False)
     image_encrypted = Column(String)
     opted_in = Column(Boolean, default=False)
+    last_quiz_sent_at = Column(DateTime, nullable=True)
+    next_random_quiz_at = Column(DateTime, nullable=True)
 
     scores = relationship('Score', back_populates='user')
     quiz_sessions = relationship("QuizSession", back_populates="user")

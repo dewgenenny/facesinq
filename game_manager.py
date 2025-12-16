@@ -208,3 +208,30 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
         print(f"[ERROR] Unexpected error while updating message: {str(e)}")
     # Remove the stored answer (delete the quiz session)
     delete_quiz_session(user_id)
+
+def process_random_quizzes():
+    """Check for users due for a random quiz and send it."""
+    from datetime import datetime, timedelta
+    from database_helpers import get_users_due_for_quiz, update_user_quiz_schedule
+
+    now = datetime.utcnow()
+    # Simple check for office hours (08:00 - 18:00 UTC for now)
+    # TODO: Support user timezones
+    if not (8 <= now.hour < 18):
+        logger.info("Outside office hours, skipping random quizzes.")
+        return
+
+    users = get_users_due_for_quiz()
+    logger.info(f"Found {len(users)} users due for a random quiz.")
+
+    for user in users:
+        logger.info(f"Sending random quiz to user {user.id} (Team: {user.team_id})")
+        success, msg = send_quiz_to_user(user.id, user.team_id)
+        
+        # Schedule next quiz regardless of success (to avoid retry loops on error)
+        # Random interval between 30 mins and 4 hours
+        minutes = random.randint(30, 240)
+        next_quiz_at = now + timedelta(minutes=minutes)
+        
+        update_user_quiz_schedule(user.id, next_quiz_at)
+        logger.info(f"Scheduled next quiz for user {user.id} at {next_quiz_at} (in {minutes} mins)")

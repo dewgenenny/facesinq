@@ -159,15 +159,12 @@ def slack_commands():
                 else:
                     return jsonify(response_type='ephemeral', text='Failed to opt-in. Could not fetch user details.'), 200
             
-            return jsonify(response_type='ephemeral', text='You have opted in to FaceSinq quizzes!'), 200
+            return jsonify(response_type='ephemeral', text='You have subscribed to random FaceSinq quizzes! You will receive them during office hours.'), 200
         elif text == 'opt-out':
             update_user_opt_in(user_id, False)
-            return jsonify(response_type='ephemeral', text='You have opted out of FaceSinq quizzes.'), 200
+            return jsonify(response_type='ephemeral', text='You have unsubscribed from random FaceSinq quizzes.'), 200
         elif text == 'quiz':
-            # Check if the user has opted in
-            if not has_user_opted_in(user_id):
-                return jsonify(response_type='ephemeral', text='You need to opt-in first using `/facesinq opt-in`.'), 200
-            # Send a quiz to the user
+            # Send a quiz to the user (no opt-in required for manual quizzes)
             success, message = send_quiz_to_user(user_id, team_id)
             return jsonify(response_type='ephemeral', text=message), 200
         elif text == 'stats':
@@ -355,10 +352,12 @@ def handle_sync_users_command(user_id, team_id):
 
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from game_manager import send_quiz_to_user, handle_quiz_response, process_random_quizzes
 
-# Initialize and start scheduler for background tasks
+# Initialize scheduler
 scheduler = BackgroundScheduler()
 scheduler.add_job(fetch_and_store_users_for_all_workspaces, 'interval', hours=1, kwargs={'update_existing': True})
+scheduler.add_job(process_random_quizzes, 'interval', minutes=5)
 scheduler.start()
 logger.info("BackgroundScheduler started.")
 

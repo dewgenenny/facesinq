@@ -255,7 +255,30 @@ def add_or_update_user(user_id, name, image, team_id):
 
 
 
-def does_user_exist(team_id):
-    """Check if users already exist in the database for a specific team."""
     with Session() as session:
         return session.query(User).filter_by(team_id=team_id).count() > 0
+
+def get_users_due_for_quiz():
+    """Fetch users who are opted in and due for a random quiz."""
+    from datetime import datetime
+    with Session() as session:
+        now = datetime.utcnow()
+        # Users opted in AND (next_random_quiz_at is NULL OR next_random_quiz_at <= now)
+        return session.query(User).filter(
+            User.opted_in == True,
+            (User.next_random_quiz_at == None) | (User.next_random_quiz_at <= now)
+        ).all()
+
+def update_user_quiz_schedule(user_id, next_quiz_at):
+    """Update the next scheduled quiz time for a user."""
+    from datetime import datetime
+    with Session() as session:
+        try:
+            user = session.query(User).filter_by(id=user_id).one_or_none()
+            if user:
+                user.last_quiz_sent_at = datetime.utcnow()
+                user.next_random_quiz_at = next_quiz_at
+                session.commit()
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error updating quiz schedule for user {user_id}: {str(e)}")
