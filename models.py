@@ -71,6 +71,7 @@ class Score(Base):
     __tablename__ = 'scores'
     user_id = Column(String, ForeignKey('users.id'), primary_key=True)
     score = Column(Integer, default=0)
+    total_attempts = Column(Integer, default=0)
     user = relationship('User', back_populates='scores')
 
     def __repr__(self):

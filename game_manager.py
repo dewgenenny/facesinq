@@ -135,9 +135,9 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
     # Determine if the user's selection is correct
     is_correct = selected_user_id == correct_user_id
 
-    # Update the user's score if correct
-    if is_correct:
-        update_score(user_id, points=1)
+    # Update the user's score and attempts
+    points = 1 if is_correct else 0
+    update_score(user_id, points)
 
     # Prepare to update the original message
     original_blocks = payload['message']['blocks']

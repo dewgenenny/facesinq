@@ -130,8 +130,9 @@ def update_score(user_id, points):
         score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
         if score:
             score.score += points
+            score.total_attempts += 1
         else:
-            score = Score(user_id=user_id, score=points)
+            score = Score(user_id=user_id, score=points, total_attempts=1)
             session.add(score)
         session.commit()
 
@@ -209,21 +210,38 @@ def get_top_scores(limit=10):
     """Fetch the top scoring users along with their decrypted scores."""
     with Session() as session:
         try:
-            # Query the encrypted name, encrypted image, and score columns
-            top_scores = session.query(User.name_encrypted, User.image_encrypted, Score.score).join(Score).order_by(Score.score.desc()).limit(limit).all()
+            # Query the encrypted name, encrypted image, score, and total_attempts columns
+            # We fetch all scores first to calculate percentage and filter in Python (easier for percentage calculation)
+            # Or we can do it in SQL if we want to be more efficient, but Python is fine for small datasets
+            all_scores = session.query(User.name_encrypted, User.image_encrypted, Score.score, Score.total_attempts).join(Score).all()
 
-            # Decrypt the names and images after retrieving from the database
-            decrypted_scores = []
-            for name_encrypted, image_encrypted, score in top_scores:
+            # Process scores: decrypt, calculate percentage, filter
+            processed_scores = []
+            for name_encrypted, image_encrypted, score, total_attempts in all_scores:
+                if total_attempts < 10:
+                    continue
+                
                 try:
                     name_decrypted = decrypt_value(name_encrypted)
                     image_decrypted = decrypt_value(image_encrypted)
-                    decrypted_scores.append((name_decrypted, score, image_decrypted))
+                    percentage = (score / total_attempts) * 100
+                    processed_scores.append({
+                        'name': name_decrypted,
+                        'score': score,
+                        'total_attempts': total_attempts,
+                        'percentage': percentage,
+                        'image_url': image_decrypted
+                    })
                 except Exception as e:
-                    print(f"Error decrypting name or image: {str(e)}")
-                    decrypted_scores.append(("Unknown", score, None))  # Handle decryption errors gracefully
+                    print(f"Error processing score for user: {str(e)}")
+                    continue
 
-            return decrypted_scores
+            # Sort by percentage descending
+            processed_scores.sort(key=lambda x: x['percentage'], reverse=True)
+
+            # Return top 'limit' scores
+            # Returning tuple compatible with leaderboard.py expectations (name, percentage, image_url, score, total_attempts)
+            return [(s['name'], s['percentage'], s['image_url'], s['score'], s['total_attempts']) for s in processed_scores[:limit]]
 
         except SQLAlchemyError as e:
             print(f"Error fetching top scores: {str(e)}")

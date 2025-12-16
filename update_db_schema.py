@@ -23,5 +23,13 @@ def add_columns():
         except Exception as e:
             logger.warning(f"Could not add next_random_quiz_at (might already exist): {e}")
 
+        try:
+            # Add total_attempts
+            logger.info("Adding total_attempts column...")
+            connection.execute(text("ALTER TABLE scores ADD COLUMN total_attempts INTEGER DEFAULT 0"))
+            logger.info("Added total_attempts column.")
+        except Exception as e:
+            logger.warning(f"Could not add total_attempts (might already exist): {e}")
+
 if __name__ == "__main__":
     add_columns()

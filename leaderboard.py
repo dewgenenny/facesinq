@@ -34,12 +34,12 @@ def get_leaderboard_blocks():
             }
         })
     else:
-        for idx, (name, score, image_url) in enumerate(top_scores):
+        for idx, (name, percentage, image_url, score, total_attempts) in enumerate(top_scores):
             section = {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*{idx + 1}. {name}*\n{score} points"
+                    "text": f"*{idx + 1}. {name}*\n{percentage:.1f}% ({score}/{total_attempts})"
                 }
             }
             
