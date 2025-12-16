@@ -38,6 +38,52 @@ with app.app_context():
     #initialize_database()  # Optional: add initial setup logic if needed
     #fetch_and_store_users_for_all_workspaces(update_existing=True)
 
+def get_welcome_message_blocks():
+    """Generate the blocks for the welcome message."""
+    images = get_random_user_images(3)
+    
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "Welcome to FaceSinq! 👋",
+                "emoji": True
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "FaceSinq helps you get to know your colleagues better! We'll show you photos of your team members, and you have to guess who they are. It's a fun way to learn names and faces."
+            }
+        }
+    ]
+    
+    if images:
+        image_elements = []
+        for img_url in images:
+            image_elements.append({
+                "type": "image",
+                "image_url": img_url,
+                "alt_text": "Colleague photo"
+            })
+        
+        # Context block for images (max 10 elements, we have 3)
+        blocks.append({
+            "type": "context",
+            "elements": image_elements
+        })
+
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes during office hours.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq leaderboard` - See who knows the team best (requires 10+ attempts).\n• `/facesinq stats` - See how many people are playing.\n• `/facesinq score` - Check your own score."
+        }
+    })
+    return blocks
+
 @app.route('/slack/oauth_redirect', methods=['GET'])
 def oauth_redirect():
     # Get authorization code from Slack
@@ -152,7 +198,9 @@ def slack_commands():
     logger.info(f"Received command: {command} text: {text} user: {user_id} team: {team_id}")
 
     if command == '/facesinq':
-        if text == 'opt-in':
+        if not text:
+            return jsonify(response_type='ephemeral', blocks=get_welcome_message_blocks()), 200
+        elif text == 'opt-in':
             if not update_user_opt_in(user_id, True):
                 # User not found, try to fetch them
                 logger.info(f"User {user_id} not found during opt-in. Fetching from Slack...")
@@ -228,51 +276,7 @@ def slack_commands():
 
 
     else:
-        # Welcome message with random photos
-        images = get_random_user_images(3)
-        
-        blocks = [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Welcome to FaceSinq! 👋",
-                    "emoji": True
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "FaceSinq helps you get to know your colleagues better! We'll show you photos of your team members, and you have to guess who they are. It's a fun way to learn names and faces."
-                }
-            }
-        ]
-        
-        if images:
-            image_elements = []
-            for img_url in images:
-                image_elements.append({
-                    "type": "image",
-                    "image_url": img_url,
-                    "alt_text": "Colleague photo"
-                })
-            
-            # Context block for images (max 10 elements, we have 3)
-            blocks.append({
-                "type": "context",
-                "elements": image_elements
-            })
-
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes during office hours.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq leaderboard` - See who knows the team best (requires 10+ attempts).\n• `/facesinq stats` - See how many people are playing.\n• `/facesinq score` - Check your own score."
-            }
-        })
-
-        return jsonify(response_type='ephemeral', blocks=blocks), 200
+        return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats | leaderboard]"), 200
 
     return '', 404
 
