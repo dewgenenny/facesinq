@@ -168,8 +168,8 @@ def slack_commands():
             if not has_user_opted_in(user_id):
                 return jsonify(response_type='ephemeral', text='You need to opt-in first using `/facesinq opt-in`.'), 200
             # Send a quiz to the user
-            send_quiz_to_user(user_id, team_id)
-            return jsonify(response_type='ephemeral', text='Quiz sent!'), 200
+            success, message = send_quiz_to_user(user_id, team_id)
+            return jsonify(response_type='ephemeral', text=message), 200
         elif text == 'stats':
             # Handle the stats command (we'll implement this in the next section)
             count = get_opted_in_user_count(team_id)

@@ -4,6 +4,9 @@ from slack_client import get_slack_client
 from database_helpers import create_or_update_quiz_session, get_colleagues_excluding_user, update_score, get_active_quiz_session, get_user_name, delete_quiz_session
 from slack_sdk.errors import SlackApiError
 from models import User
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -22,14 +25,14 @@ def send_quiz_to_user(user_id, team_id):
     existing_quiz = get_active_quiz_session(user_id)
 
     if existing_quiz:
-        print(f"User {user_id} already has an active quiz.")
+        logger.info(f"User {user_id} already has an active quiz.")
         send_message_to_user(client, user_id, "You already have an active quiz! Please answer it before requesting a new one.")
-        return
+        return False, "You already have an active quiz!"
 
     # Check if there are enough colleagues for a quiz
     if len(colleagues) < 4:
-        print(f"Not enough colleagues to send a quiz to user {user_id}")
-        return
+        logger.warning(f"Not enough colleagues to send a quiz to user {user_id}. Found {len(colleagues)}.")
+        return False, f"Not enough colleagues to generate a quiz. Found {len(colleagues)}, need at least 4 others."
 
     # Select correct answer and random options
     correct_choice = random.choice(colleagues)
@@ -93,9 +96,11 @@ def send_quiz_to_user(user_id, team_id):
             text="Time for a quiz!",
             blocks=blocks
         )
-        print(f"Message sent to user {user_id}, ts: {response['ts']}")
+        logger.info(f"Message sent to user {user_id}, ts: {response['ts']}")
+        return True, "Quiz sent!"
     except SlackApiError as e:
-        print(f"Error sending message to user {user_id}: {e.response['error']}")
+        logger.error(f"Error sending message to user {user_id}: {e.response['error']}")
+        return False, f"Error sending quiz: {e.response['error']}"
 
 def send_message_to_user(client, user_id, message_text):
     """Helper function to send a message to a user."""
