@@ -4,7 +4,7 @@ import time
 import json
 from db import engine, initialize_database
 from models import Base
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts
+from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images
 import logging
 
 # Configure logging
@@ -228,7 +228,51 @@ def slack_commands():
 
 
     else:
-            return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats | leaderboard]"), 200
+        # Welcome message with random photos
+        images = get_random_user_images(3)
+        
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Welcome to FaceSinq! 👋",
+                    "emoji": True
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "FaceSinq helps you get to know your colleagues better! We'll show you photos of your team members, and you have to guess who they are. It's a fun way to learn names and faces."
+                }
+            }
+        ]
+        
+        if images:
+            image_elements = []
+            for img_url in images:
+                image_elements.append({
+                    "type": "image",
+                    "image_url": img_url,
+                    "alt_text": "Colleague photo"
+                })
+            
+            # Context block for images (max 10 elements, we have 3)
+            blocks.append({
+                "type": "context",
+                "elements": image_elements
+            })
+
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes during office hours.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq leaderboard` - See who knows the team best (requires 10+ attempts).\n• `/facesinq stats` - See how many people are playing.\n• `/facesinq score` - Check your own score."
+            }
+        })
+
+        return jsonify(response_type='ephemeral', blocks=blocks), 200
 
     return '', 404
 

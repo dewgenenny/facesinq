@@ -118,6 +118,27 @@ def get_user_attempts(user_id):
             print(f"Error fetching attempts for User ID: {user_id}, Error: {str(e)}")
             return 0
 
+def get_random_user_images(limit=3):
+    """Fetch a list of random user image URLs."""
+    from sqlalchemy.sql.expression import func
+    with Session() as session:
+        try:
+            # Query users with images, order by random
+            users = session.query(User.image_encrypted).filter(User.image_encrypted != None).order_by(func.random()).limit(limit).all()
+            
+            images = []
+            for (image_encrypted,) in users:
+                try:
+                    image_decrypted = decrypt_value(image_encrypted)
+                    if image_decrypted:
+                        images.append(image_decrypted)
+                except Exception:
+                    continue
+            return images
+        except SQLAlchemyError as e:
+            print(f"Error fetching random user images: {str(e)}")
+            return []
+
 def get_opted_in_user_count(team_id):
     """Get the count of users who have opted in for a specific team."""
     session = Session()
