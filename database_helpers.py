@@ -255,6 +255,8 @@ def add_or_update_user(user_id, name, image, team_id):
 
 
 
+def does_user_exist(team_id):
+    """Check if users already exist in the database for a specific team."""
     with Session() as session:
         return session.query(User).filter_by(team_id=team_id).count() > 0
 
