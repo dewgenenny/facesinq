@@ -32,22 +32,31 @@ def get_slack_client(team_id=None):
     """
     if team_id:
         try:
+            logger.debug(f"Attempting to retrieve access token for team_id: {team_id}")
             access_token = get_workspace_access_token(team_id)
             if access_token:
-                logger.info(f"Establishing Slack client for team_id: {team_id}")
+                logger.info(f"Establishing Slack client for team_id: {team_id} with custom token")
+                # Log a masked version of the token for debugging
+                masked_token = f"{access_token[:5]}...{access_token[-5:]}" if len(access_token) > 10 else "******"
+                logger.debug(f"Using access token: {masked_token}")
                 return WebClient(token=access_token)
             else:
                 logger.warning(f"No access token found for team_id: {team_id}. Falling back to default bot token.")
         except Exception as e:
             logger.error(f"Error retrieving access token for team_id {team_id}: {e}")
 
-    logger.debug("Using default Slack client.")
+    logger.debug("Using default Slack client with SLACK_BOT_TOKEN.")
     return WebClient(token=os.environ.get('SLACK_BOT_TOKEN'))
 
 def verify_slack_signature(request):
     """Verifies the signature of incoming Slack requests."""
+    timestamp = request.headers.get('X-Slack-Request-Timestamp')
+    signature = request.headers.get('X-Slack-Signature')
+    logger.debug(f"Verifying signature. Timestamp: {timestamp}, Signature: {signature}")
+    
     if not signature_verifier.is_valid_request(request.get_data(), request.headers):
         logger.warning(f"Invalid Slack signature verification for request. Headers: {request.headers}")
+        logger.debug(f"Request body: {request.get_data()}")
         return False
     logger.debug("Slack signature verified successfully.")
     return True

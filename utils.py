@@ -51,12 +51,14 @@ def fetch_users(team_id):
         client = WebClient(token=access_token)
 
         # Call Slack API to fetch users
+        logger.debug(f"Calling client.users_list() for team_id: {team_id}")
         response = client.users_list()
 
         # Log entire response for debugging purposes
-        logger.debug(f"Slack API response for team_id {team_id}: {response}")
+        logger.debug(f"Slack API response for team_id {team_id}: ok={response.get('ok')}")
 
         if not response.get("ok"):
+            logger.error(f"Slack API response not OK: {response}")
             raise Exception(f"Slack API response not OK: {response}")
 
         # Extract and return members list if the response is successful
