@@ -30,9 +30,11 @@ from slack_sdk.errors import SlackApiError
 from leaderboard import get_leaderboard_blocks
 from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event, is_user_workspace_admin
 from game_manager import send_quiz_to_user, handle_quiz_response
+from update_db_schema import add_columns
 
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
+    add_columns() # Run schema updates (migrations)
     #initialize_database()  # Optional: add initial setup logic if needed
     #fetch_and_store_users_for_all_workspaces(update_existing=True)
 
