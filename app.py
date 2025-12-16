@@ -4,7 +4,7 @@ import time
 import json
 from db import engine, initialize_database
 from models import Base
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session
+from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts
 import logging
 
 # Configure logging
@@ -177,6 +177,10 @@ def slack_commands():
             score = get_user_score(user_id)
             return jsonify(response_type='ephemeral', text=f'Your current score is {score}.'), 200
         elif text == 'leaderboard':
+            attempts = get_user_attempts(user_id)
+            if attempts < 10:
+                return jsonify(response_type='ephemeral', text=f'You need to answer at least 10 quizzes to view the leaderboard! You have answered {attempts} so far.'), 200
+            
             logger.info("Got leaderboard request. Channel: " + channel_id )
             leaderboard_blocks = get_leaderboard_blocks()
             return jsonify(response_type='in_channel', blocks=leaderboard_blocks), 200

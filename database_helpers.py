@@ -108,6 +108,16 @@ def get_user_score(user_id):
             print(f"Error fetching score for User ID: {user_id}, Error: {str(e)}")
             return 0
 
+def get_user_attempts(user_id):
+    """Fetch the total attempts of a given user."""
+    with Session() as session:
+        try:
+            score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
+            return score.total_attempts if score else 0
+        except SQLAlchemyError as e:
+            print(f"Error fetching attempts for User ID: {user_id}, Error: {str(e)}")
+            return 0
+
 def get_opted_in_user_count(team_id):
     """Get the count of users who have opted in for a specific team."""
     session = Session()
