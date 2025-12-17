@@ -86,6 +86,15 @@ class QuizSession(Base):
 
     user = relationship("User", back_populates="quiz_sessions")
 
+class ScoreHistory(Base):
+    __tablename__ = 'score_history'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    score = Column(Integer, default=0) # 0 or 1 for this attempt
+    created_at = Column(DateTime, nullable=False)
+
+    user = relationship("User")
+
 # # Define relationships after all classes are defined
 # User.scores = db.relationship('Score', back_populates='user')
 # User.quiz_sessions = db.relationship("QuizSession", back_populates="user")

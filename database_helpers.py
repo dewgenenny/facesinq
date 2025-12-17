@@ -1,6 +1,6 @@
 # database_helpers.py
 from db import Session
-from models import User, Score, QuizSession, decrypt_value, Workspace
+from models import User, Score, QuizSession, decrypt_value, Workspace, ScoreHistory
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, NoResultFound
 
 
@@ -183,6 +183,7 @@ def get_user(user_id):
         return session.query(User).filter_by(id=user_id).one_or_none()
 
 def update_score(user_id, points):
+    from datetime import datetime
     with Session() as session:
         score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
         if score:
@@ -191,6 +192,11 @@ def update_score(user_id, points):
         else:
             score = Score(user_id=user_id, score=points, total_attempts=1)
             session.add(score)
+        
+        # Add history record
+        history = ScoreHistory(user_id=user_id, score=points, created_at=datetime.utcnow())
+        session.add(history)
+        
         session.commit()
 
 def update_user_opt_in(user_id, opt_in):
@@ -302,6 +308,52 @@ def get_top_scores(limit=10):
 
         except SQLAlchemyError as e:
             print(f"Error fetching top scores: {str(e)}")
+            return []
+
+def get_top_scores_period(start_date, limit=5):
+    """Fetch top scores since a specific date."""
+    from sqlalchemy import func
+    with Session() as session:
+        try:
+            # Aggregate scores from history
+            # We need to join with User to get names/images
+            results = session.query(
+                ScoreHistory.user_id,
+                func.sum(ScoreHistory.score).label('total_score'),
+                func.count(ScoreHistory.id).label('total_attempts'),
+                User.name_encrypted,
+                User.image_encrypted
+            ).join(User)\
+            .filter(ScoreHistory.created_at >= start_date)\
+            .group_by(ScoreHistory.user_id, User.name_encrypted, User.image_encrypted)\
+            .all()
+
+            processed_scores = []
+            for user_id, score, total_attempts, name_encrypted, image_encrypted in results:
+                if total_attempts < 1: # Show anyone who has played at least once in the period
+                    continue
+                
+                try:
+                    name_decrypted = decrypt_value(name_encrypted)
+                    image_decrypted = decrypt_value(image_encrypted)
+                    percentage = (score / total_attempts) * 100
+                    processed_scores.append({
+                        'name': name_decrypted,
+                        'score': score,
+                        'total_attempts': total_attempts,
+                        'percentage': percentage,
+                        'image_url': image_decrypted
+                    })
+                except Exception as e:
+                    continue
+
+            # Sort by percentage descending, then total score descending
+            processed_scores.sort(key=lambda x: (x['percentage'], x['score']), reverse=True)
+
+            return [(s['name'], s['percentage'], s['image_url'], s['score'], s['total_attempts']) for s in processed_scores[:limit]]
+
+        except SQLAlchemyError as e:
+            print(f"Error fetching period scores: {str(e)}")
             return []
 
 
