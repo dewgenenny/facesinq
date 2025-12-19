@@ -103,10 +103,11 @@ def get_user_score(user_id):
     with Session() as session:
         try:
             score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
-            return score.score if score else 0
+            score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
+            return (score.score, score.total_attempts) if score else (0, 0)
         except SQLAlchemyError as e:
             print(f"Error fetching score for User ID: {user_id}, Error: {str(e)}")
-            return 0
+            return 0, 0
 
 def get_user_attempts(user_id):
     """Fetch the total attempts of a given user."""

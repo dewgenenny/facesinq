@@ -45,7 +45,7 @@ def create_ranking_section(title, scores, empty_message="_No scores yet._"):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*{rank_display} {name}*{streak_display}\n*{percentage:.1f}%* ({score} pts / {total_attempts} tries)"
+                    "text": f"*{rank_display} {name}*{streak_display}\n{score} pts (from {total_attempts} tries)"
                 }
             }
             
