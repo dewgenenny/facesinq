@@ -305,8 +305,8 @@ def get_top_scores(limit=10):
                     print(f"Error processing score for user: {str(e)}")
                     continue
 
-            # Sort by percentage descending
-            processed_scores.sort(key=lambda x: x['percentage'], reverse=True)
+            # Sort by score descending
+            processed_scores.sort(key=lambda x: x['score'], reverse=True)
 
             # Return top 'limit' scores
             # Returning tuple compatible with leaderboard.py expectations (name, percentage, image_url, score, total_attempts, current_streak)
@@ -357,8 +357,8 @@ def get_top_scores_period(start_date, limit=5):
                 except Exception as e:
                     continue
 
-            # Sort by percentage descending, then total score descending
-            processed_scores.sort(key=lambda x: (x['percentage'], x['score']), reverse=True)
+            # Sort by total score descending
+            processed_scores.sort(key=lambda x: x['score'], reverse=True)
 
             return [(s['name'], s['percentage'], s['image_url'], s['score'], s['total_attempts'], s['current_streak']) for s in processed_scores[:limit]]
 
