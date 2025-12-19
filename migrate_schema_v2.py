@@ -28,10 +28,12 @@ def migrate():
         logger.info("Updating ScoreHistory is_correct...")
         history_rows = session.query(ScoreHistory).all()
         for h in history_rows:
-            # Heuristic: Correct answers gave 10+ points usually. Incorrect gave < 10.
-            # Base points for correct is 10. Streak adds 5.
-            # Incorrect is 2.
-            if h.score >= 10:
+            # Heuristic:
+            # Old Correct: 1 (from distribution 0, 1, 15)
+            # New Correct: >= 10
+            # New Incorrect: 2
+            # Old Incorrect: 0
+            if h.score == 1 or h.score >= 10:
                 h.is_correct = True
             else:
                 h.is_correct = False
