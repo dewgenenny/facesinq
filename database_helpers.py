@@ -273,14 +273,14 @@ def get_top_scores(limit=10):
     """Fetch the top scoring users along with their decrypted scores."""
     with Session() as session:
         try:
-            # Query the encrypted name, encrypted image, score, and total_attempts columns
+            # Query the encrypted name, encrypted image, score, total_attempts, and current_streak columns
             # We fetch all scores first to calculate percentage and filter in Python (easier for percentage calculation)
             # Or we can do it in SQL if we want to be more efficient, but Python is fine for small datasets
-            all_scores = session.query(User.name_encrypted, User.image_encrypted, Score.score, Score.total_attempts).join(Score).all()
+            all_scores = session.query(User.name_encrypted, User.image_encrypted, Score.score, Score.total_attempts, User.current_streak).join(Score).all()
 
             # Process scores: decrypt, calculate percentage, filter
             processed_scores = []
-            for name_encrypted, image_encrypted, score, total_attempts in all_scores:
+            for name_encrypted, image_encrypted, score, total_attempts, current_streak in all_scores:
                 if total_attempts < 10:
                     continue
                 
@@ -293,7 +293,8 @@ def get_top_scores(limit=10):
                         'score': score,
                         'total_attempts': total_attempts,
                         'percentage': percentage,
-                        'image_url': image_decrypted
+                        'image_url': image_decrypted,
+                        'current_streak': current_streak
                     })
                 except Exception as e:
                     print(f"Error processing score for user: {str(e)}")
@@ -303,8 +304,8 @@ def get_top_scores(limit=10):
             processed_scores.sort(key=lambda x: x['percentage'], reverse=True)
 
             # Return top 'limit' scores
-            # Returning tuple compatible with leaderboard.py expectations (name, percentage, image_url, score, total_attempts)
-            return [(s['name'], s['percentage'], s['image_url'], s['score'], s['total_attempts']) for s in processed_scores[:limit]]
+            # Returning tuple compatible with leaderboard.py expectations (name, percentage, image_url, score, total_attempts, current_streak)
+            return [(s['name'], s['percentage'], s['image_url'], s['score'], s['total_attempts'], s['current_streak']) for s in processed_scores[:limit]]
 
         except SQLAlchemyError as e:
             print(f"Error fetching top scores: {str(e)}")
@@ -322,14 +323,15 @@ def get_top_scores_period(start_date, limit=5):
                 func.sum(ScoreHistory.score).label('total_score'),
                 func.count(ScoreHistory.id).label('total_attempts'),
                 User.name_encrypted,
-                User.image_encrypted
+                User.image_encrypted,
+                User.current_streak
             ).join(User)\
             .filter(ScoreHistory.created_at >= start_date)\
-            .group_by(ScoreHistory.user_id, User.name_encrypted, User.image_encrypted)\
+            .group_by(ScoreHistory.user_id, User.name_encrypted, User.image_encrypted, User.current_streak)\
             .all()
 
             processed_scores = []
-            for user_id, score, total_attempts, name_encrypted, image_encrypted in results:
+            for user_id, score, total_attempts, name_encrypted, image_encrypted, current_streak in results:
                 if total_attempts < 1: # Show anyone who has played at least once in the period
                     continue
                 
@@ -342,7 +344,8 @@ def get_top_scores_period(start_date, limit=5):
                         'score': score,
                         'total_attempts': total_attempts,
                         'percentage': percentage,
-                        'image_url': image_decrypted
+                        'image_url': image_decrypted,
+                        'current_streak': current_streak
                     })
                 except Exception as e:
                     continue
@@ -350,7 +353,7 @@ def get_top_scores_period(start_date, limit=5):
             # Sort by percentage descending, then total score descending
             processed_scores.sort(key=lambda x: (x['percentage'], x['score']), reverse=True)
 
-            return [(s['name'], s['percentage'], s['image_url'], s['score'], s['total_attempts']) for s in processed_scores[:limit]]
+            return [(s['name'], s['percentage'], s['image_url'], s['score'], s['total_attempts'], s['current_streak']) for s in processed_scores[:limit]]
 
         except SQLAlchemyError as e:
             print(f"Error fetching period scores: {str(e)}")

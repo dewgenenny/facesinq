@@ -135,9 +135,72 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
     # Determine if the user's selection is correct
     is_correct = selected_user_id == correct_user_id
 
+    # Calculate points and streak
+    from datetime import datetime, timedelta
+    from database_helpers import get_user, update_user_streak
+
+    user = get_user(user_id)
+    now = datetime.utcnow()
+    
+    current_streak = user.current_streak if user.current_streak else 0
+    last_answered = user.last_answered_at
+    
+    new_streak = current_streak
+    
+    # Check streak logic
+    if last_answered:
+        # Check if last answered was yesterday (or today)
+        # Using simple day difference for now
+        last_date = last_answered.date()
+        today_date = now.date()
+        
+        if last_date == today_date:
+             # Already answered today, keep streak
+             pass
+        elif last_date == today_date - timedelta(days=1):
+             # Answered yesterday, increment streak
+             new_streak += 1
+        else:
+             # Missed a day or more, reset streak
+             new_streak = 1
+    else:
+        # First time playing
+        new_streak = 1
+        
+    # Cap streak bonus at 10 days (50 points)
+    streak_bonus_multiplier = min(new_streak, 10)
+    streak_points = streak_bonus_multiplier * 5
+    
+    if is_correct:
+        base_points = 10
+        total_points = base_points + streak_points
+    else:
+        base_points = 2
+        total_points = base_points # No streak bonus for wrong answers, or maybe yes? Plan said: "+5 points per day of streak". 
+        # Plan example: "Day 1 = 10 pts. Day 2 = 10 + 5 = 15 pts." implying bonus is added to correct answer.
+        # Let's assume streak bonus is only for correct answers to prevent farming points with wrong answers?
+        # Actually, "Participation Points: Users get points even if they answer incorrectly".
+        # Let's give base participation points (2) for incorrect, but maybe NO streak bonus?
+        # "Streak System: Rewards users for playing on consecutive days."
+        # If I get it wrong, do I keep my streak? Most games say yes if you play.
+        # So I should update the streak regardless of correctness?
+        # Plan says: "Verify DB last_answered_at is updated and current_streak becomes 1."
+        # It doesn't explicitly say if wrong answer updates streak.
+        # Usually, just *playing* maintains the streak.
+        # But *points* for streak usually go on top of *winning*.
+        # Let's implement: Streak increments if you PLAY. Bonus points only if you WIN.
+        # Wait, if I answer wrong, do I get streak bonus points? 
+        # "Day 1 = 10 pts." -> Correct answer.
+        # Let's stick to simple: Streak Bonus only on Correct Answer.
+        # But playing (even wrong) maintains/increments streak count.
+        
+        total_points = base_points
+
+    # Update streak in DB
+    update_user_streak(user_id, new_streak, now)
+
     # Update the user's score and attempts
-    points = 1 if is_correct else 0
-    update_score(user_id, points)
+    update_score(user_id, total_points)
 
     # Prepare to update the original message
     original_blocks = payload['message']['blocks']
@@ -170,10 +233,11 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
 
     # Add feedback text at the top
     if is_correct:
-        feedback_text = "🎉 *Correct!* You really know your colleagues! 🌟"
+        streak_msg = f" 🔥 {new_streak} Day Streak! (+{streak_points} pts)" if new_streak > 1 else ""
+        feedback_text = f"🎉 *Correct!* You really know your colleagues! 🌟\n*+{total_points} Points!*{streak_msg}"
     else:
         correct_name = get_user_name(correct_user_id)
-        feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀"
+        feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀\n*+{total_points} Points for participating!*"
 
     # Insert feedback text at the top of the blocks
     original_blocks.insert(0, {

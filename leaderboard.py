@@ -28,7 +28,7 @@ def create_ranking_section(title, scores, empty_message="_No scores yet._"):
             }
         })
     else:
-        for idx, (name, percentage, image_url, score, total_attempts) in enumerate(scores):
+        for idx, (name, percentage, image_url, score, total_attempts, current_streak) in enumerate(scores):
             # Add medals for top 3
             if idx == 0:
                 rank_display = "🥇"
@@ -39,11 +39,13 @@ def create_ranking_section(title, scores, empty_message="_No scores yet._"):
             else:
                 rank_display = f"{idx + 1}."
 
+            streak_display = f" 🔥 {current_streak}" if current_streak > 1 else ""
+            
             section = {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"*{rank_display} {name}*\n*{percentage:.1f}%* ({score}/{total_attempts})"
+                    "text": f"*{rank_display} {name}*{streak_display}\n*{percentage:.1f}%* ({score} pts / {total_attempts} tries)"
                 }
             }
             

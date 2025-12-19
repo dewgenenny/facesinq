@@ -40,6 +40,8 @@ class User(Base):
     opted_in = Column(Boolean, default=False)
     last_quiz_sent_at = Column(DateTime, nullable=True)
     next_random_quiz_at = Column(DateTime, nullable=True)
+    current_streak = Column(Integer, default=0)
+    last_answered_at = Column(DateTime, nullable=True)
 
     scores = relationship('Score', back_populates='user')
     quiz_sessions = relationship("QuizSession", back_populates="user")

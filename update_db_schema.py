@@ -31,5 +31,21 @@ def add_columns():
         except Exception as e:
             logger.warning(f"Could not add total_attempts (might already exist): {e}")
 
+        try:
+            # Add current_streak
+            logger.info("Adding current_streak column...")
+            connection.execute(text("ALTER TABLE users ADD COLUMN current_streak INTEGER DEFAULT 0"))
+            logger.info("Added current_streak column.")
+        except Exception as e:
+            logger.warning(f"Could not add current_streak (might already exist): {e}")
+
+        try:
+            # Add last_answered_at
+            logger.info("Adding last_answered_at column...")
+            connection.execute(text("ALTER TABLE users ADD COLUMN last_answered_at DATETIME"))
+            logger.info("Added last_answered_at column.")
+        except Exception as e:
+            logger.warning(f"Could not add last_answered_at (might already exist): {e}")
+
 if __name__ == "__main__":
     add_columns()
