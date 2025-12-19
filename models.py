@@ -74,6 +74,7 @@ class Score(Base):
     user_id = Column(String, ForeignKey('users.id'), primary_key=True)
     score = Column(Integer, default=0)
     total_attempts = Column(Integer, default=0)
+    correct_attempts = Column(Integer, default=0)
     user = relationship('User', back_populates='scores')
 
     def __repr__(self):
@@ -93,6 +94,7 @@ class ScoreHistory(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String, ForeignKey('users.id'), nullable=False)
     score = Column(Integer, default=0) # 0 or 1 for this attempt
+    is_correct = Column(Boolean, default=False)
     created_at = Column(DateTime, nullable=False)
 
     user = relationship("User")

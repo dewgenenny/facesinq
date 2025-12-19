@@ -182,19 +182,22 @@ def get_user(user_id):
     with Session() as session:
         return session.query(User).filter_by(id=user_id).one_or_none()
 
-def update_score(user_id, points):
+def update_score(user_id, points, is_correct=False):
     from datetime import datetime
     with Session() as session:
         score = session.query(Score).filter(Score.user_id == user_id).one_or_none()
         if score:
             score.score += points
             score.total_attempts += 1
+            if is_correct:
+                score.correct_attempts += 1
         else:
-            score = Score(user_id=user_id, score=points, total_attempts=1)
+            correct_cnt = 1 if is_correct else 0
+            score = Score(user_id=user_id, score=points, total_attempts=1, correct_attempts=correct_cnt)
             session.add(score)
         
         # Add history record
-        history = ScoreHistory(user_id=user_id, score=points, created_at=datetime.utcnow())
+        history = ScoreHistory(user_id=user_id, score=points, is_correct=is_correct, created_at=datetime.utcnow())
         session.add(history)
         
         session.commit()
@@ -276,18 +279,19 @@ def get_top_scores(limit=10):
             # Query the encrypted name, encrypted image, score, total_attempts, and current_streak columns
             # We fetch all scores first to calculate percentage and filter in Python (easier for percentage calculation)
             # Or we can do it in SQL if we want to be more efficient, but Python is fine for small datasets
-            all_scores = session.query(User.name_encrypted, User.image_encrypted, Score.score, Score.total_attempts, User.current_streak).join(Score).all()
+            all_scores = session.query(User.name_encrypted, User.image_encrypted, Score.score, Score.total_attempts, User.current_streak, Score.correct_attempts).join(Score).all()
 
             # Process scores: decrypt, calculate percentage, filter
             processed_scores = []
-            for name_encrypted, image_encrypted, score, total_attempts, current_streak in all_scores:
+            for name_encrypted, image_encrypted, score, total_attempts, current_streak, correct_attempts in all_scores:
                 if total_attempts < 10:
                     continue
                 
                 try:
                     name_decrypted = decrypt_value(name_encrypted)
                     image_decrypted = decrypt_value(image_encrypted)
-                    percentage = (score / total_attempts) * 100
+                    # Percentage is now based on correct answers, not score
+                    percentage = (correct_attempts / total_attempts) * 100
                     processed_scores.append({
                         'name': name_decrypted,
                         'score': score,
@@ -313,7 +317,7 @@ def get_top_scores(limit=10):
 
 def get_top_scores_period(start_date, limit=5):
     """Fetch top scores since a specific date."""
-    from sqlalchemy import func
+    from sqlalchemy import func, case
     with Session() as session:
         try:
             # Aggregate scores from history
@@ -322,6 +326,7 @@ def get_top_scores_period(start_date, limit=5):
                 ScoreHistory.user_id,
                 func.sum(ScoreHistory.score).label('total_score'),
                 func.count(ScoreHistory.id).label('total_attempts'),
+                func.sum(case((ScoreHistory.is_correct == True, 1), else_=0)).label('correct_attempts'),
                 User.name_encrypted,
                 User.image_encrypted,
                 User.current_streak
@@ -331,14 +336,15 @@ def get_top_scores_period(start_date, limit=5):
             .all()
 
             processed_scores = []
-            for user_id, score, total_attempts, name_encrypted, image_encrypted, current_streak in results:
+            for user_id, score, total_attempts, correct_attempts, name_encrypted, image_encrypted, current_streak in results:
                 if total_attempts < 1: # Show anyone who has played at least once in the period
                     continue
                 
                 try:
                     name_decrypted = decrypt_value(name_encrypted)
                     image_decrypted = decrypt_value(image_encrypted)
-                    percentage = (score / total_attempts) * 100
+                    # Percentage based on correct answers
+                    percentage = (correct_attempts / total_attempts) * 100
                     processed_scores.append({
                         'name': name_decrypted,
                         'score': score,

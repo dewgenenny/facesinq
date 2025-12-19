@@ -200,7 +200,7 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
     update_user_streak(user_id, new_streak, now)
 
     # Update the user's score and attempts
-    update_score(user_id, total_points)
+    update_score(user_id, total_points, is_correct=is_correct)
 
     # Prepare to update the original message
     original_blocks = payload['message']['blocks']
