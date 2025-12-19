@@ -415,3 +415,18 @@ def update_user_quiz_schedule(user_id, next_quiz_at):
         except SQLAlchemyError as e:
             session.rollback()
             print(f"Error updating quiz schedule for user {user_id}: {str(e)}")
+
+def update_user_streak(user_id, streak, last_answered_at):
+    """Update the user's current streak and last answered time."""
+    with Session() as session:
+        try:
+            user = session.query(User).filter_by(id=user_id).one_or_none()
+            if user:
+                user.current_streak = streak
+                user.last_answered_at = last_answered_at
+                session.commit()
+            else:
+                 print(f"User {user_id} not found when updating streak.")
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error updating streak for user {user_id}: {str(e)}")
