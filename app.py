@@ -128,9 +128,11 @@ def slack_actions():
 
     action = payload['actions'][0]
     user_id = payload['user']['id']
-    selected_user_id = action['value']
-    message_ts = payload['message']['ts']
-    channel_id = payload['channel']['id']
+    selected_user_id = action.get('value')
+    
+    # Message TS and Channel ID might not exist for App Home actions
+    message_ts = payload.get('message', {}).get('ts')
+    channel_id = payload.get('channel', {}).get('id')
 
     # Extract team_id from different possible locations in the payload
     team_id = None
