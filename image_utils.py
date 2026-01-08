@@ -57,12 +57,30 @@ def generate_grid_image_bytes(image_urls):
                 draw.rectangle([x, y, x + target_size[0], y + target_size[1]], fill="grey")
                 draw.text((x + 50, y + 50), "N/A", fill="white")
 
-            # Simple rectangle background for number (1, 2, 3, 4)
-            draw.rectangle([x, y, x + 40, y + 40], fill="white")
-            # Draw number (roughly centered in box)
-            # Default font is very small, but better than nothing.
-            # If we had a font file we could load it, but we'll stick to basic.
-            draw.text((x + 15, y + 10), str(idx + 1), fill="black")
+            # Draw number (large, overlaid, no box)
+            try:
+                # Big font for visibility (Pillow >= 10.0.0)
+                font = ImageFont.load_default(size=80)
+            except TypeError:
+                 # Fallback for older Pillow
+                font = ImageFont.load_default() 
+
+            text = str(idx + 1)
+            text_x = x + 20
+            text_y = y + 10
+            
+            # Simple outline/shadow for contrast against photos
+            shadow_color = "black"
+            main_color = "cyan"
+            thick = 3
+            
+            # Draw outline
+            for off_x in range(-thick, thick+1):
+                for off_y in range(-thick, thick+1):
+                    draw.text((text_x + off_x, text_y + off_y), text, font=font, fill=shadow_color)
+            
+            # Draw main text
+            draw.text((text_x, text_y), text, font=font, fill=main_color)
             
         # Convert to bytes
         output = io.BytesIO()

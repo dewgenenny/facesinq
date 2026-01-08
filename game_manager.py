@@ -119,16 +119,11 @@ def send_quiz_to_user(user_id, team_id):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇 (See image above)"
+                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇 (See image below)"
                 }
             }
         ]
         
-        # If grid_bytes is missing for some reason, we could fallback, 
-        # but let's assume it's there if difficulty is hard.
-        # If not, the user sees "See image above" but no image. 
-        # Robustness would imply a fallback here, but "Direct Upload" strategy relies on it.
-
         # Buttons
         button_elements = []
         for idx, option in enumerate(options):
@@ -176,19 +171,7 @@ def send_quiz_to_user(user_id, team_id):
                 "action_id": f"quiz_response_{idx}"
             })
 
-    # Add Next Quiz (placeholder / safety)
-    blocks.append({
-        "type": "actions",
-        "block_id": "next_quiz_block",
-        "elements": [
-            {
-                "type": "button",
-                "text": {"type": "plain_text", "text": "Next Quiz"},
-                "value": "next_quiz",
-                "action_id": "next_quiz"
-            }
-        ]
-    })
+    # Note: We do NOT adding the 'Next Quiz' button yet. It appears after answering.
 
     # 4. Send Message (Upload + Blocks)
     try:
@@ -392,13 +375,29 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
             else:
                 feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀\n*+{total_points} Points for participating!*"
 
-        # Insert feedback text at the top of the blocks
-        original_blocks.insert(0, {
+        # Insert feedback and Next Quiz button at the BOTTOM
+        original_blocks.append({"type": "divider"})
+        
+        original_blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": feedback_text
             }
+        })
+        
+        original_blocks.append({
+            "type": "actions",
+            "block_id": "next_quiz_block",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Next Quiz"},
+                    "value": "next_quiz",
+                    "action_id": "next_quiz",
+                    "style": "primary"
+                }
+            ]
         })
 
         # Extract channel ID and message timestamp from payload
