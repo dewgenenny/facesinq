@@ -5,7 +5,6 @@ from database_helpers import create_or_update_quiz_session, get_colleagues_exclu
 from slack_sdk.errors import SlackApiError
 from models import User
 import logging
-from image_utils import generate_grid_image_bytes
 
 import threading
 
@@ -47,40 +46,14 @@ def generate_quiz_data(user_id, team_id):
     )
     random.shuffle(options)
     
-    uploaded_file_id = None
-    if difficulty == 'hard':
-        # Hard Mode: Pre-generate the grid
-        image_urls = [opt.image for opt in options]
-        grid_bytes = generate_grid_image_bytes(image_urls)
-        
-        if grid_bytes:
-            client = get_slack_client(team_id)
-            try:
-                upload_response = client.files_upload_v2(
-                    file=grid_bytes,
-                    filename="quiz_grid.jpg",
-                    title="FaceSinq Grid"
-                )
-                if upload_response.get('ok'):
-                    uploaded_file_id = upload_response['file']['id']
-                    uploaded_file_url = upload_response['file'].get('url_private')
-                    logger.info(f"Pre-generated grid uploaded: {uploaded_file_id}, URL: {uploaded_file_url}")
-                else:
-                    logger.error(f"Failed to upload pre-generated grid: {upload_response.get('error')}")
-                    uploaded_file_id = None
-                    uploaded_file_url = None
-            except Exception as e:
-                logger.error(f"Exception during pre-generated grid upload: {e}")
-                uploaded_file_id = None
-                uploaded_file_url = None
-    else:
-        uploaded_file_url = None
+    # We no longer pre-generate grids for Hard Mode
+    # Rely on client-side list layout
 
     return {
         'correct_choice': correct_choice,
         'options': options,
-        'uploaded_file_id': uploaded_file_id,
-        'uploaded_file_url': uploaded_file_url,
+        'uploaded_file_id': None,
+        'uploaded_file_url': None,
         'difficulty': difficulty
     }
 
@@ -126,52 +99,29 @@ def send_quiz_to_user(user_id, team_id):
     # Unpack data
     correct_choice = quiz_data['correct_choice']
     options = quiz_data['options']
-    uploaded_file_url = quiz_data.get('uploaded_file_url') # Get the private URL
+    grid_bytes = quiz_data.get('grid_bytes') # Bytes for 2x2 grid
     difficulty = quiz_data['difficulty']
 
     # 2. Store session in DB
     create_or_update_quiz_session(user_id=user_id, correct_user_id=correct_choice.id)
 
-    # 3. Construct Blocks
+    # 3. Construct Wrapper Blocks (Question + Buttons)
+    # Note: For Hard Mode, the Image Grid is sent as a separate file upload message!
     if difficulty == 'hard':
         blocks = [
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇"
+                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇 (See image above)"
                 }
             }
         ]
         
-        # Use image_url with url_private instead of slack_file provided the bot has access
-        # Since we just uploaded it, we should access it.
-        # Note: url_private usually requires headers, but Slack clients unfurl it if app is in channel.
-        if uploaded_file_url:
-            blocks.append({
-                "type": "image",
-                "image_url": uploaded_file_url,
-                "alt_text": "Options 1-4"
-            })
-        else:
-            # Fallback if upload failed (or wasn't cached)
-            # If generating on fly failed upload, we still need fallback
-            blocks.append({
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": "⚠️ _Grid unavailable. Using list._"}
-            })
-            for idx, option in enumerate(options):
-                section_block = {
-                    "type": "section",
-                     "text": {"type": "mrkdwn", "text": f"*Option {idx+1}*"}
-                }
-                if option.image:
-                    section_block["accessory"] = {
-                        "type": "image",
-                        "image_url": option.image,
-                        "alt_text": f"Option {idx+1}"
-                    }
-                blocks.append(section_block)
+        # If grid_bytes is missing for some reason, we could fallback, 
+        # but let's assume it's there if difficulty is hard.
+        # If not, the user sees "See image above" but no image. 
+        # Robustness would imply a fallback here, but "Direct Upload" strategy relies on it.
 
         # Buttons
         button_elements = []
@@ -234,13 +184,31 @@ def send_quiz_to_user(user_id, team_id):
         ]
     })
 
-    # 4. Send Message
+    # 4. Send Message (Upload + Blocks)
     try:
+        # Open DM Channel
         resp = client.conversations_open(users=[user_id])
         channel_id = resp["channel"]["id"]
         
+        # If Hard Mode and we have bytes, upload directly to the channel
+        if difficulty == 'hard' and grid_bytes:
+            try:
+                logger.info(f"Uploading 2x2 grid directly to channel {channel_id}...")
+                client.files_upload_v2(
+                    channel=channel_id, # Post directly to channel
+                    file=grid_bytes,
+                    filename="quiz_2x2.jpg",
+                    title="Who is this?",
+                    initial_comment="🧠 *Hard Mode Grid*" # Optional context
+                )
+            except SlackApiError as e:
+                logger.error(f"Failed to upload grid image: {e}")
+                # We continue to send the blocks, user will see error there or missing image.
+                # Maybe fallback blocks? 
+                pass
+
         import json
-        logger.info(f"Sending quiz with blocks: {json.dumps(blocks)}")
+        logger.info(f"Sending quiz blocks: {json.dumps(blocks)}")
         
         response = client.chat_postMessage(channel=channel_id, text="Time for a quiz!", blocks=blocks)
         logger.info(f"Quiz sent to user {user_id}, ts: {response['ts']}")
@@ -257,6 +225,7 @@ def send_quiz_to_user(user_id, team_id):
         return False, str(e)
     except SlackApiError as e:
         logger.error(f"Error sending quiz to {user_id}: {e.response['error']}")
+        delete_quiz_session(user_id) # Ensure cleanup here too
         return False, f"Error: {e.response['error']}"
 
 def send_message_to_user(client, user_id, message_text):

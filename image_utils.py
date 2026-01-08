@@ -28,7 +28,6 @@ def generate_grid_image_bytes(image_urls):
 
         # Create a blank canvas (e.g., 512x512 or 1024x1024 depending on input)
         # Let's standardize on 512x512 quadrants -> 1024x1024 total
-        # Or 256x256 quadrants -> 512x512 total (Slack limits)
         
         target_size = (400, 400) # Each quadrant size
         grid_width = target_size[0] * 2
@@ -37,24 +36,8 @@ def generate_grid_image_bytes(image_urls):
         grid_img = Image.new('RGB', (grid_width, grid_height), color='white')
         
         draw = ImageDraw.Draw(grid_img)
-        # Font for numbers
-        try:
-            # Try to load a default font, size depends on system. 
-            # Pillow uses simplistic default font if path not specified.
-            # Loading truetype needs a path. Let's use default for now or a large ratio.
-            font = ImageFont.load_default() 
-            # Default font is tiny. We need to draw big numbers.
-            # Without a .ttf file in the container/system, scalable fonts are hard.
-            # We will rely on position instead of numbers on image? 
-            # Or just draw simple rectangles/lines.
-            
-            # Actually, standard Pillow default font is bitmap and unscalable.
-            # We can draw the number clearly if we had a font.
-            # Let's Skip intricate numbers for now and just rely on the 2x2 layout.
-            pass
-        except:
-            pass
-
+        # Font for numbers - simplified to just position/shapes if font missing
+        
         positions = [
             (0, 0), (target_size[0], 0),
             (0, target_size[1]), (target_size[0], target_size[1])
@@ -74,14 +57,11 @@ def generate_grid_image_bytes(image_urls):
                 draw.rectangle([x, y, x + target_size[0], y + target_size[1]], fill="grey")
                 draw.text((x + 50, y + 50), "N/A", fill="white")
 
-            # Draw Number Overlay (1, 2, 3, 4)
-            # Since we lack a scalable font, let's draw a small box in the corner with the number
-            # Or just assume Top-L=1, Top-R=2 etc.
-            # Let's draw a white circle with black text in Top-Left of each quadrant
-            
-            # Simple rectangle background for number
+            # Simple rectangle background for number (1, 2, 3, 4)
             draw.rectangle([x, y, x + 40, y + 40], fill="white")
-            # Draw number (small default font better than nothing)
+            # Draw number (roughly centered in box)
+            # Default font is very small, but better than nothing.
+            # If we had a font file we could load it, but we'll stick to basic.
             draw.text((x + 15, y + 10), str(idx + 1), fill="black")
             
         # Convert to bytes
