@@ -7,33 +7,38 @@ from models import User
 import logging
 from image_utils import generate_grid_image_bytes
 
+import threading
+
 logger = logging.getLogger(__name__)
 
+# Cache to store pre-generated quizzes: {user_id: quiz_data}
+# quiz_data = {
+#   'correct_choice': User object,
+#   'options': [User objects,...],
+#   'uploaded_file_id': str (optional),
+#   'difficulty': str
+# }
+PENDING_QUIZZES = {}
 
-
-def send_quiz_to_user(user_id, team_id):
-    """Send a quiz to a specific user in the workspace."""
-    global quiz_answers
-
-
-    # Set up the Slack client with the correct access token
-    client = get_slack_client(team_id)
+def generate_quiz_data(user_id, team_id):
+    """
+    Generates the data structure required for a quiz (options, grid, etc.),
+    without sending it or updating the database yet.
+    """
+    # Get user difficulty mode
+    user = get_user(user_id)
+    if not user:
+        return None
+        
+    difficulty = getattr(user, 'difficulty_mode', 'easy')
 
     # Get all colleagues, excluding the user themselves
     colleagues = get_colleagues_excluding_user(user_id, team_id)
-
-    # Check if the user already has an active quiz session
-    existing_quiz = get_active_quiz_session(user_id)
-
-    if existing_quiz:
-        logger.info(f"User {user_id} already has an active quiz.")
-        send_message_to_user(client, user_id, "You already have an active quiz! Please answer it before requesting a new one.")
-        return False, "You already have an active quiz!"
-
+    
     # Check if there are enough colleagues for a quiz
     if len(colleagues) < 4:
-        logger.warning(f"Not enough colleagues to send a quiz to user {user_id}. Found {len(colleagues)}.")
-        return False, f"Not enough colleagues to generate a quiz. Found {len(colleagues)}, need at least 4 others."
+        logger.warning(f"Not enough colleagues to generate a quiz for user {user_id}. Found {len(colleagues)}.")
+        return None
 
     # Select correct answer and random options
     correct_choice = random.choice(colleagues)
@@ -41,26 +46,16 @@ def send_quiz_to_user(user_id, team_id):
         [col for col in colleagues if col != correct_choice], 3
     )
     random.shuffle(options)
-
-    # Store the correct answer in quiz_sessions
-    quiz_session = create_or_update_quiz_session(user_id=user_id, correct_user_id=correct_choice.id)
     
-    # Check user difficulty mode
-    user = get_user(user_id)
-    difficulty = getattr(user, 'difficulty_mode', 'easy')
-
+    uploaded_file_id = None
     if difficulty == 'hard':
-        # HARD MODE: 2x2 Grid via Slack File Upload
-        
-        # 1. Generate Grid Image
+        # Hard Mode: Pre-generate the grid
         image_urls = [opt.image for opt in options]
         grid_bytes = generate_grid_image_bytes(image_urls)
         
-        uploaded_file_id = None
         if grid_bytes:
+            client = get_slack_client(team_id)
             try:
-                # 2. Upload to Slack
-                # Note: Using 'file' parameter with bytes
                 upload_response = client.files_upload_v2(
                     file=grid_bytes,
                     filename="quiz_grid.jpg",
@@ -68,13 +63,69 @@ def send_quiz_to_user(user_id, team_id):
                 )
                 if upload_response.get('ok'):
                     uploaded_file_id = upload_response['file']['id']
-                    logger.info(f"Grid image uploaded successfully: {uploaded_file_id}")
+                    logger.info(f"Pre-generated grid uploaded: {uploaded_file_id}")
                 else:
-                    logger.error(f"Failed to upload grid image: {upload_response.get('error')}")
+                    logger.error(f"Failed to upload pre-generated grid: {upload_response.get('error')}")
             except Exception as e:
-                logger.error(f"Exception during grid upload: {e}")
+                logger.error(f"Exception during pre-generated grid upload: {e}")
 
-        # 3. Construct Blocks
+    return {
+        'correct_choice': correct_choice,
+        'options': options,
+        'uploaded_file_id': uploaded_file_id,
+        'difficulty': difficulty
+    }
+
+def prepare_next_quiz(user_id, team_id):
+    """Background task to generate the next quiz and store it in cache."""
+    try:
+        logger.info(f"Preparing next quiz for user {user_id}...")
+        quiz_data = generate_quiz_data(user_id, team_id)
+        if quiz_data:
+            PENDING_QUIZZES[user_id] = quiz_data
+            logger.info(f"Next quiz prepared and cached for user {user_id}.")
+        else:
+            logger.warning(f"Failed to prepare next quiz for {user_id} (insufficient data?)")
+    except Exception as e:
+        logger.error(f"Error preparing next quiz for {user_id}: {e}")
+
+def send_quiz_to_user(user_id, team_id):
+    """Send a quiz to a specific user, using cached data if available."""
+    # Set up the Slack client
+    client = get_slack_client(team_id)
+
+    # Check if the user already has an active quiz session
+    # Note: If we just finished a quiz, the session should be gone by now.
+    existing_quiz = get_active_quiz_session(user_id)
+    if existing_quiz:
+        logger.info(f"User {user_id} already has an active quiz.")
+        send_message_to_user(client, user_id, "You already have an active quiz! Please answer it before requesting a new one.")
+        return False, "You already have an active quiz!"
+
+    # 1. Retrieve or Generate Quiz Data
+    quiz_data = PENDING_QUIZZES.pop(user_id, None)
+    
+    if quiz_data:
+        logger.info(f"Using cached quiz for user {user_id}!")
+    else:
+        logger.info(f"No cached quiz for user {user_id}. Generating on the fly...")
+        quiz_data = generate_quiz_data(user_id, team_id)
+        
+    if not quiz_data:
+        send_message_to_user(client, user_id, "Not enough colleagues to generate a quiz yet!")
+        return False, "Not enough colleagues."
+
+    # Unpack data
+    correct_choice = quiz_data['correct_choice']
+    options = quiz_data['options']
+    uploaded_file_id = quiz_data.get('uploaded_file_id') # Might be None if easy mode or failed upload
+    difficulty = quiz_data['difficulty']
+
+    # 2. Store session in DB
+    create_or_update_quiz_session(user_id=user_id, correct_user_id=correct_choice.id)
+
+    # 3. Construct Blocks
+    if difficulty == 'hard':
         blocks = [
             {
                 "type": "section",
@@ -86,25 +137,18 @@ def send_quiz_to_user(user_id, team_id):
         ]
         
         if uploaded_file_id:
-            # Use the Slack File
             blocks.append({
                 "type": "image",
-                "slack_file": {
-                    "id": uploaded_file_id
-                },
-                "alt_text": "Options 1-4 (Top-L, Top-R, Btm-L, Btm-R)"
+                "slack_file": {"id": uploaded_file_id},
+                "alt_text": "Options 1-4"
             })
         else:
-            # Fallback to text warning or interleaved listing if grid fails
+            # Fallback if upload failed (or wasn't cached)
+            # If generating on fly failed upload, we still need fallback
             blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "⚠️ _Grid generation failed. Using standard list._"
-                }
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": "⚠️ _Grid unavailable. Using list._"}
             })
-            # Fallback list logic could go here, or we simple fail gracefully.
-            # Let's add the images individually just in case so the quiz is playable.
             for idx, option in enumerate(options):
                 blocks.append({
                     "type": "section",
@@ -116,7 +160,7 @@ def send_quiz_to_user(user_id, team_id):
                     }
                 })
 
-        # Add buttons for selection
+        # Buttons
         button_elements = []
         for idx, option in enumerate(options):
             button_elements.append({
@@ -133,14 +177,11 @@ def send_quiz_to_user(user_id, team_id):
         })
 
     else:
-        # EASY MODE: 1 Photo, 4 Names
+        # EASY MODE
         blocks = [
             {
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "🤔 *Who is this colleague?*"
-                }
+                "text": {"type": "mrkdwn", "text": "🤔 *Who is this colleague?*"}
             },
             {
                 "type": "image",
@@ -153,7 +194,6 @@ def send_quiz_to_user(user_id, team_id):
                 "elements": []
             }
         ]
-
         for idx, option in enumerate(options):
             blocks[2]["elements"].append({
                 "type": "button",
@@ -162,6 +202,7 @@ def send_quiz_to_user(user_id, team_id):
                 "action_id": f"quiz_response_{idx}"
             })
 
+    # Add Next Quiz (placeholder / safety)
     blocks.append({
         "type": "actions",
         "block_id": "next_quiz_block",
@@ -175,21 +216,20 @@ def send_quiz_to_user(user_id, team_id):
         ]
     })
 
-    # Send the message to the user by opening a DM
+    # 4. Send Message
     try:
-        response = client.conversations_open(users=[user_id])
-        channel_id = response["channel"]["id"]
-
-        response = client.chat_postMessage(
-            channel=channel_id,
-            text="Time for a quiz!",
-            blocks=blocks
-        )
-        logger.info(f"Message sent to user {user_id}, ts: {response['ts']}")
+        resp = client.conversations_open(users=[user_id])
+        channel_id = resp["channel"]["id"]
+        response = client.chat_postMessage(channel=channel_id, text="Time for a quiz!", blocks=blocks)
+        logger.info(f"Quiz sent to user {user_id}, ts: {response['ts']}")
+        
+        # 5. TRIGGER BACKGROUND PREPARATION FOR NEXT QUIZ
+        threading.Thread(target=prepare_next_quiz, args=(user_id, team_id)).start()
+        
         return True, "Quiz sent!"
     except SlackApiError as e:
-        logger.error(f"Error sending message to user {user_id}: {e.response['error']}")
-        return False, f"Error sending quiz: {e.response['error']}"
+        logger.error(f"Error sending quiz to {user_id}: {e.response['error']}")
+        return False, f"Error: {e.response['error']}"
 
 def send_message_to_user(client, user_id, message_text):
     """Helper function to send a message to a user."""

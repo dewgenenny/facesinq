@@ -157,7 +157,8 @@ def slack_actions():
 
     elif action['action_id'] == 'next_quiz':
         # Handle the "Next Quiz" button click
-        send_quiz_to_user(user_id, team_id)
+        # Execute in background thread to avoid 3s timeout
+        threading.Thread(target=send_quiz_to_user, args=(user_id, team_id)).start()
 
         # Modify the original message to disable the "Next Quiz" button
         original_blocks = payload['message']['blocks']
@@ -190,20 +191,22 @@ def slack_actions():
             )
         except SlackApiError as e:
             logger.error(f"Error updating message: {e.response['error']}")
+
     elif action['action_id'] == 'start_quiz_home':
         # Start a quiz from the Home Tab
-        try:
-            # Send quiz to user's DM
-            success, message = send_quiz_to_user(user_id, team_id)
-            if success:
-                # Optionally acknowledge the start in the Home Tab (or maybe just send a DM)
-                # We could open the DM conversation, but Slack API for that is separate.
-                # For now, we assume the user will see the notification.
-                logger.info(f"Quiz started from Home for user {user_id}")
-            else:
-                 logger.error(f"Failed to start quiz from Home for user {user_id}")
-        except Exception as e:
-            logger.error(f"Error starting quiz from home: {str(e)}")
+        # Execute in background thread to avoid 3s timeout
+        # We define a wrapper to log results since we can't get return value in main thread
+        def start_quiz_wrapper(uid, tid):
+            try:
+                success, msg = send_quiz_to_user(uid, tid)
+                if success:
+                    logger.info(f"Quiz started from Home for user {uid}")
+                else:
+                    logger.error(f"Failed to start quiz from Home for user {uid}")
+            except Exception as e:
+                logger.error(f"Error starting quiz from home thread: {e}")
+
+        threading.Thread(target=start_quiz_wrapper, args=(user_id, team_id)).start()
             
         # Refresh Home View (to update potential states or show a "Quiz Sent" message if we added that)
         publish_home_view(user_id, team_id, client)
