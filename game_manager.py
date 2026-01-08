@@ -67,6 +67,8 @@ def send_quiz_to_user(user_id, team_id):
         
         for idx, option in enumerate(options):
             option_label = f"Option {idx + 1}"
+            
+            # 1. Add Image Block
             blocks.append({
                 "type": "image",
                 "title": {
@@ -76,22 +78,17 @@ def send_quiz_to_user(user_id, team_id):
                 "image_url": option.image,
                 "alt_text": f"Option {idx + 1}"
             })
-
-        # Add buttons for selection
-        button_elements = []
-        for idx, option in enumerate(options):
-            button_elements.append({
-                "type": "button",
-                "text": {"type": "plain_text", "text": f"Option {idx + 1}"},
-                "value": option.id,
-                "action_id": f"quiz_response_{idx}"
-            })
             
-        blocks.append({
-            "type": "actions",
-            "block_id": "answer_buttons",
-            "elements": button_elements
-        })
+            # 2. Add Button Block (Action) immediately below
+            blocks.append({
+                "type": "actions",
+                "elements": [{
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": f"Select {option_label}"},
+                    "value": option.id,
+                    "action_id": f"quiz_response_{idx}"
+                }]
+            })
 
     else:
         # EASY MODE: 1 Photo, 4 Names
