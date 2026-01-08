@@ -7,6 +7,7 @@ import logging
 from slack_sdk import WebClient
 from database_helpers import add_or_update_user, add_workspace, get_workspace_access_token
 from utils import fetch_and_store_users, should_skip_user
+from app_home import publish_home_view
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,17 @@ def handle_slack_event(event, team_id):
             # Add or update the user only if they are valid
             logger.info(f"Adding/Updating user from event: {name} ({user_id})")
             add_or_update_user(user_id, name, image, team_id)
+
+    elif event_type == "app_home_opened":
+        # Handle App Home opened
+        user_id = event.get('user')
+        logger.info(f"App Home opened by user: {user_id}")
+        
+        # We need a client for this specific team to publish the view
+        client = get_slack_client(team_id)
+        
+        # Publish the view
+        publish_home_view(user_id, team_id, client)
 
     else:
         # Print unhandled event types for debugging purposes

@@ -31,6 +31,7 @@ from leaderboard import get_leaderboard_blocks
 from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event, is_user_workspace_admin
 from game_manager import send_quiz_to_user, handle_quiz_response
 from update_db_schema import add_columns
+from app_home import publish_home_view
 
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
@@ -187,6 +188,52 @@ def slack_actions():
             )
         except SlackApiError as e:
             logger.error(f"Error updating message: {e.response['error']}")
+    elif action['action_id'] == 'start_quiz_home':
+        # Start a quiz from the Home Tab
+        try:
+            # Send quiz to user's DM
+            success, message = send_quiz_to_user(user_id, team_id)
+            if success:
+                # Optionally acknowledge the start in the Home Tab (or maybe just send a DM)
+                # We could open the DM conversation, but Slack API for that is separate.
+                # For now, we assume the user will see the notification.
+                logger.info(f"Quiz started from Home for user {user_id}")
+            else:
+                 logger.error(f"Failed to start quiz from Home for user {user_id}")
+        except Exception as e:
+            logger.error(f"Error starting quiz from home: {str(e)}")
+            
+        # Refresh Home View (to update potential states or show a "Quiz Sent" message if we added that)
+        publish_home_view(user_id, team_id, client)
+        
+    elif action['action_id'] == 'toggle_opt_in_home':
+        # Toggle Opt-in from Home
+        current_value = action['value']
+        new_value = True if current_value == "true" else False # Wait, value is what we want to set it TO?
+        # In the block kit construction: "value": "false" if is_opted_in else "true"
+        # So yes, the value in the action is the DESIRED state.
+        
+        logger.info(f"Toggling opt-in for user {user_id} to {new_value}")
+        if not update_user_opt_in(user_id, new_value):
+             # Try refreshing user if update fails
+             if fetch_and_store_single_user(user_id, team_id):
+                 update_user_opt_in(user_id, new_value)
+        
+        # Refresh Home View
+        publish_home_view(user_id, team_id, client)
+        
+    elif action['action_id'] == 'toggle_difficulty_home':
+        # Toggle Difficulty from Home
+        new_mode = action['value'] # "easy" or "hard"
+        
+        logger.info(f"Toggling difficulty for user {user_id} to {new_mode}")
+        if not update_user_difficulty_mode(user_id, new_mode):
+             if fetch_and_store_single_user(user_id, team_id):
+                 update_user_difficulty_mode(user_id, new_mode)
+        
+        # Refresh Home View
+        publish_home_view(user_id, team_id, client)
+        
     else:
         # Handle other actions if any
         return '', 200
