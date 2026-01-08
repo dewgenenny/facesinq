@@ -235,8 +235,12 @@ def create_or_update_quiz_session(user_id, correct_user_id):
     """Create or update the quiz session for a user."""
     with Session() as session:
         try:
+            # Delete any existing sessions first to ensure we don't pile up duplicates
+            session.query(QuizSession).filter_by(user_id=user_id).delete()
+            
+            # Create new session
             quiz_session = QuizSession(user_id=user_id, correct_user_id=correct_user_id)
-            session.merge(quiz_session)  # Use `merge` to replace or insert as needed
+            session.add(quiz_session)
             session.commit()
         except SQLAlchemyError as e:
             session.rollback()
@@ -253,21 +257,17 @@ def delete_quiz_session(user_id):
             print(f"Error deleting quiz session for user {user_id}: {str(e)}")
 
 def reset_quiz_session(user_id):
-    """Resets the quiz session for the given user, if one exists."""
+    """Resets the quiz session for the given user, wiping all active sessions."""
     with Session() as session:
         try:
-            # Find the active quiz session for the user
-            quiz_session = session.query(QuizSession).filter_by(user_id=user_id).one_or_none()
-
-            if quiz_session:
-                session.delete(quiz_session)
-                session.commit()
-                print(f"Quiz session for user {user_id} has been successfully reset.")
+            # Use delete() directly to handle single or multiple rows gracefully
+            result = session.query(QuizSession).filter_by(user_id=user_id).delete()
+            session.commit()
+            if result > 0:
+                print(f"Reset {result} quiz session(s) for user {user_id}.")
             else:
                 print(f"No active quiz session found for user {user_id} to reset.")
 
-        except NoResultFound:
-            print(f"No active quiz session found for user {user_id}.")
         except Exception as e:
             session.rollback()
             print(f"An error occurred while resetting quiz session for user {user_id}: {str(e)}")
