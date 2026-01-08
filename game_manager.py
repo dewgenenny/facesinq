@@ -67,14 +67,23 @@ def send_quiz_to_user(user_id, team_id):
         
         for idx, option in enumerate(options):
             option_label = f"Option {idx + 1}"
+            
+            # Try to use a smaller image if possible (optimized for list view)
+            image_url = option.image
+            if image_url and "_512." in image_url:
+                image_url = image_url.replace("_512.", "_192.")
+                
             blocks.append({
-                "type": "image",
-                "title": {
-                    "type": "plain_text",
-                    "text": option_label
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*{option_label}*"
                 },
-                "image_url": option.image,
-                "alt_text": f"Option {idx + 1}"
+                "accessory": {
+                    "type": "image",
+                    "image_url": image_url,
+                    "alt_text": f"Option {idx + 1}"
+                }
             })
 
         # Add buttons for selection
