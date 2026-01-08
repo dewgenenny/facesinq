@@ -296,29 +296,39 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
     action_id = payload['actions'][0]['action_id']
     selected_option_index = int(action_id.split('_')[-1])
 
-    # Find the action block containing the answer buttons
-    answer_action_block = next(
-        (block for block in original_blocks if block.get('block_id') == 'answer_buttons'),
-        None
-    )
+    # Iterate through all blocks to find and update ALL answer buttons
+    # This handles both the "grouped" layout (block_id='answer_buttons') and the "interleaved" layout (multiple action blocks)
+    answer_blocks_found = False
+    
+    for block in original_blocks:
+        if block.get('type') == 'actions':
+            elements = block.get('elements', [])
+            # Check if this block contains quiz response buttons
+            # We match if ANY element in the block has an action_id starting with 'quiz_response_'
+            if any(el.get('action_id', '').startswith('quiz_response_') for el in elements):
+                answer_blocks_found = True
+                
+                for idx, element in enumerate(elements):
+                    # Only modify buttons that are part of the quiz (safety check)
+                    if element.get('action_id', '').startswith('quiz_response_'):
+                        # Assign a new action_id to disable further interaction
+                        # We append the existing suffix to keep it unique-ish or just random
+                        element['action_id'] = f"disabled_{element['action_id']}"
+                        
+                        if 'text' in element:
+                             element['text']['emoji'] = True
 
-    if not answer_action_block:
-        print("Answer action block not found.")
+                        # Style the buttons based on correctness
+                        if element['value'] == correct_user_id:
+                            element['style'] = 'primary'  # Correct answer in green
+                        elif element['value'] == selected_user_id:
+                            element['style'] = 'danger'   # User's incorrect selection in red
+                        else:
+                            element.pop('style', None)    # Remove 'style' if any
+
+    if not answer_blocks_found:
+        print("No answer action blocks found to update.")
         return
-
-    # Modify the action block to reflect correct and incorrect choices
-    for idx, element in enumerate(answer_action_block['elements']):
-        # Assign a new action_id to disable further interaction
-        element['action_id'] = f"disabled_{idx}"
-        element['text']['emoji'] = True  # Ensure 'emoji' field is set
-
-        # Style the buttons based on correctness
-        if element['value'] == correct_user_id:
-            element['style'] = 'primary'  # Correct answer in green
-        elif element['value'] == selected_user_id:
-            element['style'] = 'danger'   # User's incorrect selection in red
-        else:
-            element.pop('style', None)    # Remove 'style' if any
 
     # Add feedback text at the top
     first_block_text = original_blocks[0]['text']['text']
