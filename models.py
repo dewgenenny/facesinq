@@ -42,6 +42,7 @@ class User(Base):
     next_random_quiz_at = Column(DateTime, nullable=True)
     current_streak = Column(Integer, default=0)
     last_answered_at = Column(DateTime, nullable=True)
+    difficulty_mode = Column(String, default='easy')
 
     scores = relationship('Score', back_populates='user')
     quiz_sessions = relationship("QuizSession", back_populates="user")

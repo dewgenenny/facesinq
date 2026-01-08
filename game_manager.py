@@ -1,7 +1,7 @@
 # game_manager.py
 import random
 from slack_client import get_slack_client
-from database_helpers import create_or_update_quiz_session, get_colleagues_excluding_user, update_score, get_active_quiz_session, get_user_name, delete_quiz_session
+from database_helpers import create_or_update_quiz_session, get_colleagues_excluding_user, update_score, get_active_quiz_session, get_user_name, delete_quiz_session, get_user
 from slack_sdk.errors import SlackApiError
 from models import User
 import logging
@@ -43,35 +43,85 @@ def send_quiz_to_user(user_id, team_id):
 
     # Store the correct answer in quiz_sessions
     quiz_session = create_or_update_quiz_session(user_id=user_id, correct_user_id=correct_choice.id)
+    
+    # Check user difficulty mode
+    user = get_user(user_id)
+    difficulty = getattr(user, 'difficulty_mode', 'easy')
 
-    # Build interactive message
-    blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "🤔 *Who is this colleague?*"
+    if difficulty == 'hard':
+        # HARD MODE: 1 Name, 4 Photos
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇"
+                }
             }
-        },
-        {
-            "type": "image",
-            "image_url": correct_choice.image,
-            "alt_text": "Image of a colleague"
-        },
-        {
+        ]
+        
+        # Add images as options
+        # Since Slack doesn't have a grid, we use 4 Images with titles "Option 1", "Option 2", etc.
+        # Alternatively, we could use 'context' with images, but they are too small.
+        # Sections with accessories are good.
+        
+        for idx, option in enumerate(options):
+            option_label = f"Option {idx + 1}"
+            blocks.append({
+                "type": "image",
+                "title": {
+                    "type": "plain_text",
+                    "text": option_label
+                },
+                "image_url": option.image,
+                "alt_text": f"Option {idx + 1}"
+            })
+
+        # Add buttons for selection
+        button_elements = []
+        for idx, option in enumerate(options):
+            button_elements.append({
+                "type": "button",
+                "text": {"type": "plain_text", "text": f"Option {idx + 1}"},
+                "value": option.id,
+                "action_id": f"quiz_response_{idx}"
+            })
+            
+        blocks.append({
             "type": "actions",
             "block_id": "answer_buttons",
-            "elements": []
-        }
-    ]
-
-    for idx, option in enumerate(options):
-        blocks[2]["elements"].append({
-            "type": "button",
-            "text": {"type": "plain_text", "text": option.name},
-            "value": option.id,
-            "action_id": f"quiz_response_{idx}"
+            "elements": button_elements
         })
+
+    else:
+        # EASY MODE: 1 Photo, 4 Names
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "🤔 *Who is this colleague?*"
+                }
+            },
+            {
+                "type": "image",
+                "image_url": correct_choice.image,
+                "alt_text": "Image of a colleague"
+            },
+            {
+                "type": "actions",
+                "block_id": "answer_buttons",
+                "elements": []
+            }
+        ]
+
+        for idx, option in enumerate(options):
+            blocks[2]["elements"].append({
+                "type": "button",
+                "text": {"type": "plain_text", "text": option.name},
+                "value": option.id,
+                "action_id": f"quiz_response_{idx}"
+            })
 
     blocks.append({
         "type": "actions",
@@ -232,12 +282,19 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
             element.pop('style', None)    # Remove 'style' if any
 
     # Add feedback text at the top
+    first_block_text = original_blocks[0]['text']['text']
+    is_hard_mode = "Hard Mode" in first_block_text
+
     if is_correct:
         streak_msg = f" 🔥 {new_streak} Day Streak! (+{streak_points} pts)" if new_streak > 1 else ""
         feedback_text = f"🎉 *Correct!* You really know your colleagues! 🌟\n*+{total_points} Points!*{streak_msg}"
     else:
         correct_name = get_user_name(correct_user_id)
-        feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀\n*+{total_points} Points for participating!*"
+        if is_hard_mode:
+            selected_name = get_user_name(selected_user_id)
+            feedback_text = f"❌ *Nope!* You selected *{selected_name}*. We were looking for *{correct_name}*! 🍀\n*+{total_points} Points for participating!*"
+        else:
+            feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀\n*+{total_points} Points for participating!*"
 
     # Insert feedback text at the top of the blocks
     original_blocks.insert(0, {

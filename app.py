@@ -4,7 +4,7 @@ import time
 import json
 from db import engine, initialize_database
 from models import Base
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images, get_global_stats
+from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images, get_global_stats, update_user_difficulty_mode
 import logging
 
 # Configure logging
@@ -284,6 +284,24 @@ def slack_commands():
                 return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
         else:
             return jsonify({"text": "Please specify a valid user ID using the format @username."}), 400
+
+    elif command == '/facesinq' and text.startswith('mode'):
+        parts = text.split()
+        if len(parts) != 2 or parts[1] not in ['easy', 'hard']:
+            return jsonify(response_type='ephemeral', text="Usage: /facesinq mode [easy | hard]"), 200
+        
+        mode = parts[1]
+
+        if update_user_difficulty_mode(user_id, mode):
+             return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
+        else:
+             # Try fetching user if not found
+             if fetch_and_store_single_user(user_id, team_id):
+                 update_user_difficulty_mode(user_id, mode)
+                 return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
+             else:
+                 return jsonify(response_type='ephemeral', text="Failed to update mode. User not found."), 200
+
 
 
     else:

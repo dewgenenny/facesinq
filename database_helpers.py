@@ -437,3 +437,20 @@ def update_user_streak(user_id, streak, last_answered_at):
         except SQLAlchemyError as e:
             session.rollback()
             print(f"Error updating streak for user {user_id}: {str(e)}")
+
+def update_user_difficulty_mode(user_id, mode):
+    """Update the difficulty mode for a user."""
+    with Session() as session:
+        try:
+            user = session.query(User).filter_by(id=user_id).one_or_none()
+            if user:
+                user.difficulty_mode = mode
+                session.commit()
+                return True
+            else:
+                print(f"User {user_id} not found when updating difficulty mode.")
+                return False
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error updating difficulty mode for user {user_id}: {str(e)}")
+            return False

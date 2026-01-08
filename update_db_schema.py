@@ -47,5 +47,13 @@ def add_columns():
         except Exception as e:
             logger.warning(f"Could not add last_answered_at (might already exist): {e}")
 
+        try:
+            # Add difficulty_mode
+            logger.info("Adding difficulty_mode column...")
+            connection.execute(text("ALTER TABLE users ADD COLUMN difficulty_mode VARCHAR DEFAULT 'easy'"))
+            logger.info("Added difficulty_mode column.")
+        except Exception as e:
+            logger.warning(f"Could not add difficulty_mode (might already exist): {e}")
+
 if __name__ == "__main__":
     add_columns()
