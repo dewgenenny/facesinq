@@ -78,5 +78,5 @@ spec:
               - key: kubernetes.io/hostname
                 operator: In
                 values:
-                - node-1
-                - node-2
+                - kube-node-1
+                - kube-node-2
