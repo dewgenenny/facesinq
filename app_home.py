@@ -33,13 +33,13 @@ def get_home_view(user_id, team_id):
     # Get Leaderboard (Top 3 for Home View)
     top_scores = get_top_scores(limit=3)
 
+    # Hero Section
     blocks = [
-        # Hero Section
         {
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "Welcome to FaceSinq! 👋",
+                "text": "FaceSinq",
                 "emoji": True
             }
         },
@@ -47,19 +47,7 @@ def get_home_view(user_id, team_id):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "Master your team's faces and names. Challenge yourself and climb the leaderboard!"
-            }
-        },
-        {
-            "type": "divider"
-        },
-        
-        # Main Actions
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Ready to play?*"
+                "text": "Learn names faster with quick quizzes. Track accuracy and streaks."
             }
         },
         {
@@ -74,135 +62,200 @@ def get_home_view(user_id, team_id):
                     },
                     "style": "primary",
                     "action_id": "start_quiz_home"
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "🏆 Leaderboard",
+                        "emoji": True
+                    },
+                    "action_id": "view_leaderboard_home" # We might need a handler for this, or just let it link to something? 
+                    # Existing plan didn't specify a handler, let's keep it consistent or simple. 
+                    # Actually, we can just trigger the leaderboard modal or message. 
+                    # For now, let's assume it triggers the same leaderboard logic.
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "❓ Help",
+                        "emoji": True
+                    },
+                    "url": "https://github.com/dewgenenny/facesinq", # Placeholder link
+                    "action_id": "help_home"
                 }
             ]
         },
-        {
-            "type": "divider"
-        },
-        
-        # User Stats Section
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": "Your Stats 📊",
-                "emoji": True
-            }
-        },
-        {
-            "type": "section",
-            "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Score:*\n{score} / {total_attempts}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Accuracy:*\n{accuracy:.1f}%"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Streak:*\n{user.current_streak if user else 0} 🔥"
-                }
-            ]
-        },
-        {
-            "type": "divider"
-        },
-        
-        # Leaderboard Preview
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": "Leaderboard 🏆",
-                "emoji": True
-            }
-        }
+        {"type": "divider"}
     ]
-    
-    if top_scores:
-        for i, (name, pct, img, scr, att, streak) in enumerate(top_scores):
-            medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
-            blocks.append({
-                "type": "context",
-                "elements": [
+
+    # Stats or Onboarding Section
+    if total_attempts == 0:
+        # Onboarding State
+        blocks.extend([
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Welcome!* 👋\nTake your first quiz to start tracking your stats and climbing the leaderboard."
+                },
+                "accessory": {
+                   "type": "button",
+                   "text": {"type": "plain_text", "text": "Start First Quiz"},
+                   "style": "primary",
+                   "action_id": "start_quiz_home"
+                }
+            }
+        ])
+    else:
+        # Stats State
+        streak_text = f"{user.current_streak} 🔥" if user and user.current_streak > 0 else f"{user.current_streak}"
+        diff_display = difficulty.title()
+        opt_in_display = "Enabled" if is_opted_in else "Disabled"
+        
+        blocks.extend([
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "*Your Stats*"}
+            },
+            {
+                "type": "section",
+                "fields": [
                     {
-                        "type": "image",
-                        "image_url": img,
-                        "alt_text": name
+                        "type": "mrkdwn",
+                        "text": f"Score: *{score}/{total_attempts}*"
                     },
                     {
                         "type": "mrkdwn",
-                        "text": f"*{medal} {name}*  •  {pct:.0f}% ({scr}/{att})"
+                        "text": f"Accuracy: *{accuracy:.0f}%*"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Streak: *{streak_text}*"
                     }
                 ]
-            })
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"⚙️ Difficulty: *{diff_display}*  •  📅 Daily Quiz: *{opt_in_display}*"
+                    }
+                ]
+            }
+        ])
+
+    blocks.append({"type": "divider"})
+
+    # Leaderboard Section (Compact)
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "*Top Players* 🏆"
+        },
+        "accessory": {
+            "type": "button",
+             "text": {"type": "plain_text", "text": "View Full"},
+             "action_id": "view_leaderboard_home"
+        }
+    })
+
+    if top_scores:
+        leaderboard_text = ""
+        for i, (name, pct, img, scr, att, streak) in enumerate(top_scores):
+            medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
+            leaderboard_text += f"{medal} *{name}* — {pct:.0f}% ({scr}/{att})\n"
+        
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": leaderboard_text
+            }
+        })
     else:
         blocks.append({
             "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": "_No scores yet. Be the first!_"
-                }
-            ]
+            "elements": [{"type": "mrkdwn", "text": "_No scores yet._"}]
         })
 
     blocks.append({"type": "divider"})
 
-    # Settings Section
+    # Settings Section (Using Selects)
     blocks.append({
-        "type": "header",
-        "text": {
-            "type": "plain_text",
-            "text": "Settings ⚙️",
-            "emoji": True
-        }
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": "*Settings*"}
     })
-    
-    # Opt-in Toggle
-    opt_in_text = "On" if is_opted_in else "Off"
+
+    # Opt-in Select
+    opt_in_option = {
+        "text": {"type": "plain_text", "text": "Enabled"},
+        "value": "true"
+    } if is_opted_in else {
+        "text": {"type": "plain_text", "text": "Disabled"},
+        "value": "false"
+    }
+
     blocks.append({
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*Daily Random Quiz*\nReceive a random quiz during office hours."
+            "text": "📅 *Daily Random Quiz*"
         },
         "accessory": {
-            "type": "button",
-            "text": {
-                "type": "plain_text",
-                "text": f"Turn { 'Off' if is_opted_in else 'On' }",
-                "emoji": True
-            },
-            "style": "danger" if is_opted_in else "primary",
-            "value": "false" if is_opted_in else "true",
+            "type": "static_select",
+            "placeholder": {"type": "plain_text", "text": "Select status"},
+            "initial_option": opt_in_option,
+            "options": [
+                {
+                    "text": {"type": "plain_text", "text": "Enabled"},
+                    "value": "true"
+                },
+                {
+                    "text": {"type": "plain_text", "text": "Disabled"},
+                    "value": "false"
+                }
+            ],
             "action_id": "toggle_opt_in_home"
         }
     })
 
-    # Difficulty Toggle
-    is_hard = (difficulty == 'hard')
+    # Difficulty Select
+    diff_option = {
+        "text": {"type": "plain_text", "text": "Easy (Photo → Name)"},
+        "value": "easy"
+    } if difficulty == 'easy' else {
+        "text": {"type": "plain_text", "text": "Hard (Name → Photo)"},
+        "value": "hard"
+    }
+
     blocks.append({
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": f"*Difficulty Mode: {difficulty.title()}*\n{'Name -> Photo' if is_hard else 'Photo -> Name'}"
+            "text": "🧠 *Difficulty Mode*"
         },
         "accessory": {
-            "type": "button",
-            "text": {
-                "type": "plain_text",
-                "text": "Switch to Easy" if is_hard else "Switch to Hard",
-                "emoji": True
-            },
-            "value": "easy" if is_hard else "hard",
+            "type": "static_select",
+            "placeholder": {"type": "plain_text", "text": "Select difficulty"},
+            "initial_option": diff_option,
+            "options": [
+                {
+                    "text": {"type": "plain_text", "text": "Easy (Photo → Name)"},
+                    "value": "easy"
+                },
+                {
+                    "text": {"type": "plain_text", "text": "Hard (Name → Photo)"},
+                    "value": "hard"
+                }
+            ],
             "action_id": "toggle_difficulty_home"
         }
     })
-    
+
     return {
         "type": "home",
         "blocks": blocks

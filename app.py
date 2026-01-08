@@ -213,11 +213,10 @@ def slack_actions():
         publish_home_view(user_id, team_id, client)
         
     elif action['action_id'] == 'toggle_opt_in_home':
-        # Toggle Opt-in from Home
-        current_value = action['value']
-        new_value = True if current_value == "true" else False # Wait, value is what we want to set it TO?
-        # In the block kit construction: "value": "false" if is_opted_in else "true"
-        # So yes, the value in the action is the DESIRED state.
+        # Toggle Opt-in from Home (Static Select)
+        selected_option = action['selected_option']
+        new_value_str = selected_option['value']
+        new_value = True if new_value_str == "true" else False
         
         logger.info(f"Toggling opt-in for user {user_id} to {new_value}")
         if not update_user_opt_in(user_id, new_value):
@@ -229,8 +228,9 @@ def slack_actions():
         publish_home_view(user_id, team_id, client)
         
     elif action['action_id'] == 'toggle_difficulty_home':
-        # Toggle Difficulty from Home
-        new_mode = action['value'] # "easy" or "hard"
+        # Toggle Difficulty from Home (Static Select)
+        selected_option = action['selected_option']
+        new_mode = selected_option['value'] # "easy" or "hard"
         
         logger.info(f"Toggling difficulty for user {user_id} to {new_mode}")
         if not update_user_difficulty_mode(user_id, new_mode):
