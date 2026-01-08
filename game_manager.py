@@ -9,6 +9,8 @@ from image_utils import generate_grid_image_bytes
 
 import threading
 
+import time
+
 logger = logging.getLogger(__name__)
 
 # Cache to store pre-generated quizzes: {user_id: quiz_data}
@@ -119,7 +121,7 @@ def send_quiz_to_user(user_id, team_id):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇 (See image below)"
+                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇 (See image above)"
                 }
             }
         ]
@@ -190,6 +192,7 @@ def send_quiz_to_user(user_id, team_id):
                     title="Who is this?",
                     initial_comment="🧠 *Hard Mode Grid*" # Optional context
                 )
+                time.sleep(2) # Ensure image appears before blocks
             except SlackApiError as e:
                 logger.error(f"Failed to upload grid image: {e}")
                 # We continue to send the blocks, user will see error there or missing image.
