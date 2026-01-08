@@ -150,15 +150,17 @@ def send_quiz_to_user(user_id, team_id):
                     "text": {"type": "mrkdwn", "text": "⚠️ _Grid unavailable. Using list._"}
             })
             for idx, option in enumerate(options):
-                blocks.append({
+                section_block = {
                     "type": "section",
-                     "text": {"type": "mrkdwn", "text": f"*Option {idx+1}*"},
-                    "accessory": {
+                     "text": {"type": "mrkdwn", "text": f"*Option {idx+1}*"}
+                }
+                if option.image:
+                    section_block["accessory"] = {
                         "type": "image",
                         "image_url": option.image,
                         "alt_text": f"Option {idx+1}"
                     }
-                })
+                blocks.append(section_block)
 
         # Buttons
         button_elements = []
@@ -178,6 +180,9 @@ def send_quiz_to_user(user_id, team_id):
 
     else:
         # EASY MODE
+        # Safety check for image
+        image_url = correct_choice.image if correct_choice.image else "https://via.placeholder.com/150?text=No+Image"
+        
         blocks = [
             {
                 "type": "section",
@@ -185,7 +190,7 @@ def send_quiz_to_user(user_id, team_id):
             },
             {
                 "type": "image",
-                "image_url": correct_choice.image,
+                "image_url": image_url,
                 "alt_text": "Image of a colleague"
             },
             {
@@ -195,9 +200,11 @@ def send_quiz_to_user(user_id, team_id):
             }
         ]
         for idx, option in enumerate(options):
+            # Safety check for name
+            btn_text = option.name if option.name else f"Option {idx+1}"
             blocks[2]["elements"].append({
                 "type": "button",
-                "text": {"type": "plain_text", "text": option.name},
+                "text": {"type": "plain_text", "text": btn_text},
                 "value": option.id,
                 "action_id": f"quiz_response_{idx}"
             })
@@ -220,6 +227,11 @@ def send_quiz_to_user(user_id, team_id):
     try:
         resp = client.conversations_open(users=[user_id])
         channel_id = resp["channel"]["id"]
+        
+        # Log blocks for debugging invalid_blocks error
+        import json
+        logger.info(f"Sending quiz with blocks: {json.dumps(blocks)}")
+        
         response = client.chat_postMessage(channel=channel_id, text="Time for a quiz!", blocks=blocks)
         logger.info(f"Quiz sent to user {user_id}, ts: {response['ts']}")
         
