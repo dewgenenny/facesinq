@@ -63,16 +63,24 @@ def generate_quiz_data(user_id, team_id):
                 )
                 if upload_response.get('ok'):
                     uploaded_file_id = upload_response['file']['id']
-                    logger.info(f"Pre-generated grid uploaded: {uploaded_file_id}")
+                    uploaded_file_url = upload_response['file'].get('url_private')
+                    logger.info(f"Pre-generated grid uploaded: {uploaded_file_id}, URL: {uploaded_file_url}")
                 else:
                     logger.error(f"Failed to upload pre-generated grid: {upload_response.get('error')}")
+                    uploaded_file_id = None
+                    uploaded_file_url = None
             except Exception as e:
                 logger.error(f"Exception during pre-generated grid upload: {e}")
+                uploaded_file_id = None
+                uploaded_file_url = None
+    else:
+        uploaded_file_url = None
 
     return {
         'correct_choice': correct_choice,
         'options': options,
         'uploaded_file_id': uploaded_file_id,
+        'uploaded_file_url': uploaded_file_url,
         'difficulty': difficulty
     }
 
@@ -118,7 +126,7 @@ def send_quiz_to_user(user_id, team_id):
     # Unpack data
     correct_choice = quiz_data['correct_choice']
     options = quiz_data['options']
-    uploaded_file_id = quiz_data.get('uploaded_file_id') # Might be None if easy mode or failed upload
+    uploaded_file_url = quiz_data.get('uploaded_file_url') # Get the private URL
     difficulty = quiz_data['difficulty']
 
     # 2. Store session in DB
@@ -136,10 +144,13 @@ def send_quiz_to_user(user_id, team_id):
             }
         ]
         
-        if uploaded_file_id:
+        # Use image_url with url_private instead of slack_file provided the bot has access
+        # Since we just uploaded it, we should access it.
+        # Note: url_private usually requires headers, but Slack clients unfurl it if app is in channel.
+        if uploaded_file_url:
             blocks.append({
                 "type": "image",
-                "slack_file": {"id": uploaded_file_id},
+                "image_url": uploaded_file_url,
                 "alt_text": "Options 1-4"
             })
         else:
@@ -228,7 +239,6 @@ def send_quiz_to_user(user_id, team_id):
         resp = client.conversations_open(users=[user_id])
         channel_id = resp["channel"]["id"]
         
-        # Log blocks for debugging invalid_blocks error
         import json
         logger.info(f"Sending quiz with blocks: {json.dumps(blocks)}")
         
@@ -239,6 +249,12 @@ def send_quiz_to_user(user_id, team_id):
         threading.Thread(target=prepare_next_quiz, args=(user_id, team_id)).start()
         
         return True, "Quiz sent!"
+
+    except Exception as e:
+        logger.error(f"Error sending quiz to {user_id}: {e}")
+        # CRITICAL: Clean up the session if sending failed so user isn't stuck
+        delete_quiz_session(user_id)
+        return False, str(e)
     except SlackApiError as e:
         logger.error(f"Error sending quiz to {user_id}: {e.response['error']}")
         return False, f"Error: {e.response['error']}"
