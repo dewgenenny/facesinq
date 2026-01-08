@@ -5,6 +5,7 @@ from database_helpers import create_or_update_quiz_session, get_colleagues_exclu
 from slack_sdk.errors import SlackApiError
 from models import User
 import logging
+from image_utils import generate_grid_image_bytes
 
 import threading
 
@@ -46,14 +47,19 @@ def generate_quiz_data(user_id, team_id):
     )
     random.shuffle(options)
     
-    # We no longer pre-generate grids for Hard Mode
-    # Rely on client-side list layout
+    # Pre-generate grids for Hard Mode (Bytes only)
+    grid_bytes = None
+    if difficulty == 'hard':
+        # Hard Mode: Pre-generate the grid
+        image_urls = [opt.image for opt in options]
+        grid_bytes = generate_grid_image_bytes(image_urls)
 
     return {
         'correct_choice': correct_choice,
         'options': options,
         'uploaded_file_id': None,
         'uploaded_file_url': None,
+        'grid_bytes': grid_bytes,
         'difficulty': difficulty
     }
 
