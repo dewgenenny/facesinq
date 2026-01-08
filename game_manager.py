@@ -67,20 +67,14 @@ def send_quiz_to_user(user_id, team_id):
         
         for idx, option in enumerate(options):
             option_label = f"Option {idx + 1}"
-            
-
-                
             blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*{option_label}*"
+                "type": "image",
+                "title": {
+                    "type": "plain_text",
+                    "text": option_label
                 },
-                "accessory": {
-                    "type": "image",
-                    "image_url": image_url,
-                    "alt_text": f"Option {idx + 1}"
-                }
+                "image_url": option.image,
+                "alt_text": f"Option {idx + 1}"
             })
 
         # Add buttons for selection
