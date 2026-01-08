@@ -300,23 +300,12 @@ def slack_commands():
             handle_sync_users_command(user_id, team_id)
             return jsonify(response_type='ephemeral', text=f'Syncing users'), 200
         elif text == "reset-quiz":
-            # Check if the user is a workspace admin
-            if not is_user_workspace_admin(user_id, team_id):
-                return jsonify({
-                    'response_type': 'ephemeral',  # Only the user sees this response
-                    'text': "You do not have the required permissions to perform this action. Only admins are allowed."
-                }), 403
-
-            # Extract target user ID from the text
-            target_user_id = user_id  # Function to extract user ID from the command text
-            if target_user_id:
-                try:
-                    reset_quiz_session(target_user_id)
-                    return jsonify({"text": f"Quiz for user <@{target_user_id}> has been reset."})
-                except Exception as e:
-                    return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
-            else:
-                return jsonify({"text": "Please specify a valid user ID."}), 400
+            # Allow any user to reset their own quiz session
+            try:
+                reset_quiz_session(user_id)
+                return jsonify({"text": f"Your quiz session has been reset."})
+            except Exception as e:
+                return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
         elif text.startswith('mode'):
             parts = text.split()
             if len(parts) != 2 or parts[1] not in ['easy', 'hard']:

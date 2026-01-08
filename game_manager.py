@@ -261,163 +261,166 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
 
     correct_user_id = quiz_session.correct_user_id
 
-    # Determine if the user's selection is correct
-    is_correct = selected_user_id == correct_user_id
-
-    # Calculate points and streak
-    from datetime import datetime, timedelta
-    from database_helpers import get_user, update_user_streak
-
-    user = get_user(user_id)
-    now = datetime.utcnow()
-    
-    current_streak = user.current_streak if user.current_streak else 0
-    last_answered = user.last_answered_at
-    
-    new_streak = current_streak
-    
-    # Check streak logic
-    if last_answered:
-        # Check if last answered was yesterday (or today)
-        # Using simple day difference for now
-        last_date = last_answered.date()
-        today_date = now.date()
-        
-        if last_date == today_date:
-             # Already answered today, keep streak
-             pass
-        elif last_date == today_date - timedelta(days=1):
-             # Answered yesterday, increment streak
-             new_streak += 1
-        else:
-             # Missed a day or more, reset streak
-             new_streak = 1
-    else:
-        # First time playing
-        new_streak = 1
-        
-    # Cap streak bonus at 10 days (50 points)
-    streak_bonus_multiplier = min(new_streak, 10)
-    streak_points = streak_bonus_multiplier * 5
-    
-    if is_correct:
-        base_points = 10
-        total_points = base_points + streak_points
-    else:
-        base_points = 2
-        total_points = base_points # No streak bonus for wrong answers, or maybe yes? Plan said: "+5 points per day of streak". 
-        # Plan example: "Day 1 = 10 pts. Day 2 = 10 + 5 = 15 pts." implying bonus is added to correct answer.
-        # Let's assume streak bonus is only for correct answers to prevent farming points with wrong answers?
-        # Actually, "Participation Points: Users get points even if they answer incorrectly".
-        # Let's give base participation points (2) for incorrect, but maybe NO streak bonus?
-        # "Streak System: Rewards users for playing on consecutive days."
-        # If I get it wrong, do I keep my streak? Most games say yes if you play.
-        # So I should update the streak regardless of correctness?
-        # Plan says: "Verify DB last_answered_at is updated and current_streak becomes 1."
-        # It doesn't explicitly say if wrong answer updates streak.
-        # Usually, just *playing* maintains the streak.
-        # But *points* for streak usually go on top of *winning*.
-        # Let's implement: Streak increments if you PLAY. Bonus points only if you WIN.
-        # Wait, if I answer wrong, do I get streak bonus points? 
-        # "Day 1 = 10 pts." -> Correct answer.
-        # Let's stick to simple: Streak Bonus only on Correct Answer.
-        # But playing (even wrong) maintains/increments streak count.
-        
-        total_points = base_points
-
-    # Update streak in DB
-    update_user_streak(user_id, new_streak, now)
-
-    # Update the user's score and attempts
-    update_score(user_id, total_points, is_correct=is_correct)
-
-    # Prepare to update the original message
-    original_blocks = payload['message']['blocks']
-    action_id = payload['actions'][0]['action_id']
-    selected_option_index = int(action_id.split('_')[-1])
-
-    # Iterate through all blocks to find and update ALL answer buttons
-    # This handles both the "grouped" layout (block_id='answer_buttons') and the "interleaved" layout (multiple action blocks)
-    answer_blocks_found = False
-    
-    for block in original_blocks:
-        if block.get('type') == 'actions':
-            elements = block.get('elements', [])
-            # Check if this block contains quiz response buttons
-            # We match if ANY element in the block has an action_id starting with 'quiz_response_'
-            if any(el.get('action_id', '').startswith('quiz_response_') for el in elements):
-                answer_blocks_found = True
-                
-                for idx, element in enumerate(elements):
-                    # Only modify buttons that are part of the quiz (safety check)
-                    if element.get('action_id', '').startswith('quiz_response_'):
-                        # Assign a new action_id to disable further interaction
-                        # We append the existing suffix to keep it unique-ish or just random
-                        element['action_id'] = f"disabled_{element['action_id']}"
-                        
-                        if 'text' in element:
-                             element['text']['emoji'] = True
-
-                        # Style the buttons based on correctness
-                        if element['value'] == correct_user_id:
-                            element['style'] = 'primary'  # Correct answer in green
-                        elif element['value'] == selected_user_id:
-                            element['style'] = 'danger'   # User's incorrect selection in red
-                        else:
-                            element.pop('style', None)    # Remove 'style' if any
-
-    if not answer_blocks_found:
-        print("No answer action blocks found to update.")
-        return
-
-    # Add feedback text at the top
-    first_block_text = original_blocks[0]['text']['text']
-    is_hard_mode = "Hard Mode" in first_block_text
-
-    if is_correct:
-        streak_msg = f" 🔥 {new_streak} Day Streak! (+{streak_points} pts)" if new_streak > 1 else ""
-        feedback_text = f"🎉 *Correct!* You really know your colleagues! 🌟\n*+{total_points} Points!*{streak_msg}"
-    else:
-        correct_name = get_user_name(correct_user_id)
-        if is_hard_mode:
-            selected_name = get_user_name(selected_user_id)
-            feedback_text = f"❌ *Nope!* You selected *{selected_name}*. We were looking for *{correct_name}*! 🍀\n*+{total_points} Points for participating!*"
-        else:
-            feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀\n*+{total_points} Points for participating!*"
-
-    # Insert feedback text at the top of the blocks
-    original_blocks.insert(0, {
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": feedback_text
-        }
-    })
-
-    # Extract channel ID and message timestamp from payload
-    channel_id = payload['channel']['id']
-    message_ts = payload['message']['ts']
-    if channel_id.startswith('D'):
-        # DM to a specific user (user ID can also start with 'D' sometimes)
-        print(f"DM detected, sending response to user ID: {channel_id}")
-    else:
-        # General channel or private channel
-        print(f"Sending response to channel ID: {channel_id}")
-    # Update the original message with feedback and disabled buttons
     try:
-        print(f"Updating quiz response for user_id: {user_id}, team_id: {team_id}, channel_id: {channel_id}, message_ts: {message_ts}")
-        client.chat_update(
-            channel=channel_id,
-            ts=message_ts,
-            blocks=original_blocks,
-            text=feedback_text
-        )
-    except SlackApiError as e:
-        print(f"[ERROR] Slack API Error while updating message for user {user_id}: {e.response['error']}")
-    except Exception as e:
-        print(f"[ERROR] Unexpected error while updating message: {str(e)}")
-    # Remove the stored answer (delete the quiz session)
-    delete_quiz_session(user_id)
+        # Determine if the user's selection is correct
+        is_correct = selected_user_id == correct_user_id
+
+        # Calculate points and streak
+        from datetime import datetime, timedelta
+        from database_helpers import get_user, update_user_streak
+
+        user = get_user(user_id)
+        now = datetime.utcnow()
+        
+        current_streak = user.current_streak if user.current_streak else 0
+        last_answered = user.last_answered_at
+        
+        new_streak = current_streak
+        
+        # Check streak logic
+        if last_answered:
+            # Check if last answered was yesterday (or today)
+            # Using simple day difference for now
+            last_date = last_answered.date()
+            today_date = now.date()
+            
+            if last_date == today_date:
+                 # Already answered today, keep streak
+                 pass
+            elif last_date == today_date - timedelta(days=1):
+                 # Answered yesterday, increment streak
+                 new_streak += 1
+            else:
+                 # Missed a day or more, reset streak
+                 new_streak = 1
+        else:
+            # First time playing
+            new_streak = 1
+            
+        # Cap streak bonus at 10 days (50 points)
+        streak_bonus_multiplier = min(new_streak, 10)
+        streak_points = streak_bonus_multiplier * 5
+        
+        if is_correct:
+            base_points = 10
+            total_points = base_points + streak_points
+        else:
+            base_points = 2
+            total_points = base_points # No streak bonus for wrong answers, or maybe yes? Plan said: "+5 points per day of streak". 
+            # Plan example: "Day 1 = 10 pts. Day 2 = 10 + 5 = 15 pts." implying bonus is added to correct answer.
+            # Let's assume streak bonus is only for correct answers to prevent farming points with wrong answers?
+            # Actually, "Participation Points: Users get points even if they answer incorrectly".
+            # Let's give base participation points (2) for incorrect, but maybe NO streak bonus?
+            # "Streak System: Rewards users for playing on consecutive days."
+            # If I get it wrong, do I keep my streak? Most games say yes if you play.
+            # So I should update the streak regardless of correctness?
+            # Plan says: "Verify DB last_answered_at is updated and current_streak becomes 1."
+            # It doesn't explicitly say if wrong answer updates streak.
+            # Usually, just *playing* maintains the streak.
+            # But *points* for streak usually go on top of *winning*.
+            # Let's implement: Streak increments if you PLAY. Bonus points only if you WIN.
+            # Wait, if I answer wrong, do I get streak bonus points? 
+            # "Day 1 = 10 pts." -> Correct answer.
+            # Let's stick to simple: Streak Bonus only on Correct Answer.
+            # But playing (even wrong) maintains/increments streak count.
+            
+            total_points = base_points
+
+        # Update streak in DB
+        update_user_streak(user_id, new_streak, now)
+
+        # Update the user's score and attempts
+        update_score(user_id, total_points, is_correct=is_correct)
+
+        # Prepare to update the original message
+        original_blocks = payload['message']['blocks']
+        action_id = payload['actions'][0]['action_id']
+        selected_option_index = int(action_id.split('_')[-1])
+
+        # Iterate through all blocks to find and update ALL answer buttons
+        # This handles both the "grouped" layout (block_id='answer_buttons') and the "interleaved" layout (multiple action blocks)
+        answer_blocks_found = False
+        
+        for block in original_blocks:
+            if block.get('type') == 'actions':
+                elements = block.get('elements', [])
+                # Check if this block contains quiz response buttons
+                # We match if ANY element in the block has an action_id starting with 'quiz_response_'
+                if any(el.get('action_id', '').startswith('quiz_response_') for el in elements):
+                    answer_blocks_found = True
+                    
+                    for idx, element in enumerate(elements):
+                        # Only modify buttons that are part of the quiz (safety check)
+                        if element.get('action_id', '').startswith('quiz_response_'):
+                            # Assign a new action_id to disable further interaction
+                            # We append the existing suffix to keep it unique-ish or just random
+                            element['action_id'] = f"disabled_{element['action_id']}"
+                            
+                            if 'text' in element:
+                                 element['text']['emoji'] = True
+
+                            # Style the buttons based on correctness
+                            if element['value'] == correct_user_id:
+                                element['style'] = 'primary'  # Correct answer in green
+                            elif element['value'] == selected_user_id:
+                                element['style'] = 'danger'   # User's incorrect selection in red
+                            else:
+                                element.pop('style', None)    # Remove 'style' if any
+
+        if not answer_blocks_found:
+            print("No answer action blocks found to update.")
+            return
+
+        # Add feedback text at the top
+        first_block_text = original_blocks[0]['text']['text']
+        is_hard_mode = "Hard Mode" in first_block_text
+
+        if is_correct:
+            streak_msg = f" 🔥 {new_streak} Day Streak! (+{streak_points} pts)" if new_streak > 1 else ""
+            feedback_text = f"🎉 *Correct!* You really know your colleagues! 🌟\n*+{total_points} Points!*{streak_msg}"
+        else:
+            correct_name = get_user_name(correct_user_id)
+            if is_hard_mode:
+                selected_name = get_user_name(selected_user_id)
+                feedback_text = f"❌ *Nope!* You selected *{selected_name}*. We were looking for *{correct_name}*! 🍀\n*+{total_points} Points for participating!*"
+            else:
+                feedback_text = f"❌ *Nope!* This is your amazing colleague *{correct_name}*. Better luck next time! 🍀\n*+{total_points} Points for participating!*"
+
+        # Insert feedback text at the top of the blocks
+        original_blocks.insert(0, {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": feedback_text
+            }
+        })
+
+        # Extract channel ID and message timestamp from payload
+        channel_id = payload['channel']['id']
+        message_ts = payload['message']['ts']
+        if channel_id.startswith('D'):
+            # DM to a specific user (user ID can also start with 'D' sometimes)
+            print(f"DM detected, sending response to user ID: {channel_id}")
+        else:
+            # General channel or private channel
+            print(f"Sending response to channel ID: {channel_id}")
+        # Update the original message with feedback and disabled buttons
+        try:
+            print(f"Updating quiz response for user_id: {user_id}, team_id: {team_id}, channel_id: {channel_id}, message_ts: {message_ts}")
+            client.chat_update(
+                channel=channel_id,
+                ts=message_ts,
+                blocks=original_blocks,
+                text=feedback_text
+            )
+        except SlackApiError as e:
+            print(f"[ERROR] Slack API Error while updating message for user {user_id}: {e.response['error']}")
+        except Exception as e:
+            print(f"[ERROR] Unexpected error while updating message: {str(e)}")
+
+    finally:
+        # Remove the stored answer (delete the quiz session)
+        delete_quiz_session(user_id)
 
 def process_random_quizzes():
     """Check for users due for a random quiz and send it."""
