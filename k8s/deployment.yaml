@@ -65,3 +65,18 @@ spec:
       - name: data
         persistentVolumeClaim:
           claimName: facesinq-pvc
+      tolerations:
+      - key: "country"
+        operator: "Equal"
+        value: "de"
+        effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - node-1
+                - node-2
