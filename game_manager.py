@@ -5,6 +5,7 @@ from database_helpers import create_or_update_quiz_session, get_colleagues_exclu
 from slack_sdk.errors import SlackApiError
 from models import User
 import logging
+from image_utils import generate_grid_image_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,31 @@ def send_quiz_to_user(user_id, team_id):
     difficulty = getattr(user, 'difficulty_mode', 'easy')
 
     if difficulty == 'hard':
-        # HARD MODE: 1 Name, 4 Photos
+        # HARD MODE: 2x2 Grid via Slack File Upload
+        
+        # 1. Generate Grid Image
+        image_urls = [opt.image for opt in options]
+        grid_bytes = generate_grid_image_bytes(image_urls)
+        
+        uploaded_file_id = None
+        if grid_bytes:
+            try:
+                # 2. Upload to Slack
+                # Note: Using 'file' parameter with bytes
+                upload_response = client.files_upload_v2(
+                    file=grid_bytes,
+                    filename="quiz_grid.jpg",
+                    title="FaceSinq Grid"
+                )
+                if upload_response.get('ok'):
+                    uploaded_file_id = upload_response['file']['id']
+                    logger.info(f"Grid image uploaded successfully: {uploaded_file_id}")
+                else:
+                    logger.error(f"Failed to upload grid image: {upload_response.get('error')}")
+            except Exception as e:
+                logger.error(f"Exception during grid upload: {e}")
+
+        # 3. Construct Blocks
         blocks = [
             {
                 "type": "section",
@@ -60,35 +85,52 @@ def send_quiz_to_user(user_id, team_id):
             }
         ]
         
-        # Add images as options
-        # Since Slack doesn't have a grid, we use 4 Images with titles "Option 1", "Option 2", etc.
-        # Alternatively, we could use 'context' with images, but they are too small.
-        # Sections with accessories are good.
-        
-        for idx, option in enumerate(options):
-            option_label = f"Option {idx + 1}"
-            
-            # 1. Add Image Block
+        if uploaded_file_id:
+            # Use the Slack File
             blocks.append({
                 "type": "image",
-                "title": {
-                    "type": "plain_text",
-                    "text": option_label
+                "slack_file": {
+                    "id": uploaded_file_id
                 },
-                "image_url": option.image,
-                "alt_text": f"Option {idx + 1}"
+                "alt_text": "Options 1-4 (Top-L, Top-R, Btm-L, Btm-R)"
+            })
+        else:
+            # Fallback to text warning or interleaved listing if grid fails
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "⚠️ _Grid generation failed. Using standard list._"
+                }
+            })
+            # Fallback list logic could go here, or we simple fail gracefully.
+            # Let's add the images individually just in case so the quiz is playable.
+            for idx, option in enumerate(options):
+                blocks.append({
+                    "type": "section",
+                     "text": {"type": "mrkdwn", "text": f"*Option {idx+1}*"},
+                    "accessory": {
+                        "type": "image",
+                        "image_url": option.image,
+                        "alt_text": f"Option {idx+1}"
+                    }
+                })
+
+        # Add buttons for selection
+        button_elements = []
+        for idx, option in enumerate(options):
+            button_elements.append({
+                "type": "button",
+                "text": {"type": "plain_text", "text": f"Option {idx + 1}"},
+                "value": option.id,
+                "action_id": f"quiz_response_{idx}"
             })
             
-            # 2. Add Button Block (Action) immediately below
-            blocks.append({
-                "type": "actions",
-                "elements": [{
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": f"Select {option_label}"},
-                    "value": option.id,
-                    "action_id": f"quiz_response_{idx}"
-                }]
-            })
+        blocks.append({
+            "type": "actions",
+            "block_id": "answer_buttons",
+            "elements": button_elements
+        })
 
     else:
         # EASY MODE: 1 Photo, 4 Names
