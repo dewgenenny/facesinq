@@ -264,6 +264,22 @@ def slack_commands():
                     return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
             else:
                 return jsonify({"text": "Please specify a valid user ID."}), 400
+        elif text.startswith('mode'):
+            parts = text.split()
+            if len(parts) != 2 or parts[1] not in ['easy', 'hard']:
+                return jsonify(response_type='ephemeral', text="Usage: /facesinq mode [easy | hard]"), 200
+            
+            mode = parts[1]
+
+            if update_user_difficulty_mode(user_id, mode):
+                return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
+            else:
+                # Try fetching user if not found
+                if fetch_and_store_single_user(user_id, team_id):
+                    update_user_difficulty_mode(user_id, mode)
+                    return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
+                else:
+                    return jsonify(response_type='ephemeral', text="Failed to update mode. User not found."), 200
         else:
             return jsonify(response_type='ephemeral', text=f'You need to specify an option! Try /facesinq opt-in or /facesinq quiz for example :)'), 200
     elif command == "/facesinq-reset-quiz":
@@ -285,22 +301,7 @@ def slack_commands():
         else:
             return jsonify({"text": "Please specify a valid user ID using the format @username."}), 400
 
-    elif command == '/facesinq' and text.startswith('mode'):
-        parts = text.split()
-        if len(parts) != 2 or parts[1] not in ['easy', 'hard']:
-            return jsonify(response_type='ephemeral', text="Usage: /facesinq mode [easy | hard]"), 200
-        
-        mode = parts[1]
 
-        if update_user_difficulty_mode(user_id, mode):
-             return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
-        else:
-             # Try fetching user if not found
-             if fetch_and_store_single_user(user_id, team_id):
-                 update_user_difficulty_mode(user_id, mode)
-                 return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
-             else:
-                 return jsonify(response_type='ephemeral', text="Failed to update mode. User not found."), 200
 
 
 
