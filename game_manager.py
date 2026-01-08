@@ -206,6 +206,9 @@ def send_quiz_to_user(user_id, team_id):
                 # We continue to send the blocks, user will see error there or missing image.
                 # Maybe fallback blocks? 
                 pass
+            except Exception as e:
+                logger.error(f"Unexpected error uploading grid image: {e}")
+                pass
 
         import json
         logger.info(f"Sending quiz blocks: {json.dumps(blocks)}")
