@@ -121,7 +121,7 @@ def send_quiz_to_user(user_id, team_id):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*? 👇 (See image above)"
+                    "text": f"🧠 *Hard Mode*\nWho is *{correct_choice.name}*?"
                 }
             }
         ]
