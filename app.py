@@ -81,7 +81,7 @@ def get_welcome_message_blocks():
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes during office hours.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq leaderboard` - See who knows the team best (requires 10+ attempts).\n• `/facesinq stats` - See how many people are playing.\n• `/facesinq score` - Check your own score."
+            "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq score` - Check your score.\n• `/facesinq leaderboard` - View top scores (10+ attempts).\n• `/facesinq mode [easy|hard]` - Set your difficulty mode.\n• `/facesinq reset-quiz` - Reset a stuck quiz session.\n• `/facesinq reset-score` - Reset your score to zero.\n\n*Admin Commands:*\n• `/facesinq sync-users` - Refresh user list from Slack.\n• `/facesinq wipe-all-scores` - Reset ALL scores and history."
         }
     })
 
