@@ -349,7 +349,7 @@ def slack_commands():
             except Exception as e:
                 logger.error(f"Error resetting score: {e}")
                 return jsonify(response_type='ephemeral', text="An error occurred while resetting score."), 200
-        elif text == 'wipe-all-scores':
+        elif text.replace('_', '-').replace(' ', '-') == 'wipe-all-scores':
             # Check if the user is a workspace admin
             if not is_user_workspace_admin(user_id, team_id):
                 return jsonify(response_type='ephemeral', text="🚫 You do not have permission to wipe all scores."), 200
@@ -358,6 +358,7 @@ def slack_commands():
             threading.Thread(target=wipe_all_scores).start()
             return jsonify(response_type='ephemeral', text="⚠️ Wiping all scores in the background..."), 200
         else:
+            logger.info(f"Unmatched command text: '{text}'")
             return jsonify(response_type='ephemeral', text=f'You need to specify an option! Try /facesinq opt-in or /facesinq quiz for example :)'), 200
     elif command == "/facesinq-reset-quiz":
         # Check if the user is a workspace admin
