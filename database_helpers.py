@@ -151,7 +151,7 @@ def get_global_stats():
             total_questions = session.query(func.sum(Score.total_attempts)).scalar() or 0
             
             # Total correct answers (score represents correct answers)
-            total_correct = session.query(func.sum(Score.score)).scalar() or 0
+            total_correct = session.query(func.sum(Score.correct_attempts)).scalar() or 0
             
             # Average accuracy
             accuracy = (total_correct / total_questions * 100) if total_questions > 0 else 0.0
