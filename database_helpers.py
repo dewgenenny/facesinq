@@ -273,6 +273,29 @@ def reset_quiz_session(user_id):
             print(f"An error occurred while resetting quiz session for user {user_id}: {str(e)}")
 
 
+def delete_user_score(user_id):
+    """Deletes the score, history, and active quiz session for a user."""
+    with Session() as session:
+        try:
+            # Delete Quiz Session
+            session.query(QuizSession).filter_by(user_id=user_id).delete()
+            
+            # Delete Score
+            session.query(Score).filter_by(user_id=user_id).delete()
+            
+            # Delete Score History
+            session.query(ScoreHistory).filter_by(user_id=user_id).delete()
+            
+            session.commit()
+            print(f"Successfully deleted score and history for user {user_id}.")
+            return True
+
+        except Exception as e:
+            session.rollback()
+            print(f"An error occurred while deleting score for user {user_id}: {str(e)}")
+            return False
+
+
 def get_top_scores(limit=10):
     """Fetch the top scoring users along with their decrypted scores."""
     with Session() as session:
@@ -453,4 +476,28 @@ def update_user_difficulty_mode(user_id, mode):
         except SQLAlchemyError as e:
             session.rollback()
             print(f"Error updating difficulty mode for user {user_id}: {str(e)}")
+            return False
+
+def wipe_all_scores():
+    """Wipes all scores, history, and streaks for all users."""
+    with Session() as session:
+        try:
+            # Delete all rows from scores, history, and sessions
+            session.query(Score).delete()
+            session.query(ScoreHistory).delete()
+            session.query(QuizSession).delete()
+
+            # Reset user streaks and last answered
+            # We can do this with an update query
+            session.query(User).update({
+                User.current_streak: 0,
+                User.last_answered_at: None
+            })
+
+            session.commit()
+            print("Successfully wiped all scores and reset streaks.")
+            return True
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error wiping all scores: {str(e)}")
             return False

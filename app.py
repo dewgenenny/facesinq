@@ -5,7 +5,7 @@ import json
 import threading
 from db import engine, initialize_database
 from models import Base
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images, get_global_stats, update_user_difficulty_mode
+from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images, get_global_stats, update_user_difficulty_mode, delete_user_score, wipe_all_scores
 import logging
 
 # Configure logging
@@ -316,12 +316,47 @@ def slack_commands():
             if update_user_difficulty_mode(user_id, mode):
                 return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
             else:
-                # Try fetching user if not found
                 if fetch_and_store_single_user(user_id, team_id):
                     update_user_difficulty_mode(user_id, mode)
                     return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
                 else:
                     return jsonify(response_type='ephemeral', text="Failed to update mode. User not found."), 200
+        elif text.startswith('reset-score'):
+            # Usage: /facesinq reset-score [@user]
+            parts = text.split()
+            target_user_id = user_id # Default to self
+
+            if len(parts) > 1:
+                # Admin trying to reset someone else's score
+                target_user_text = parts[1]
+                extracted_uid = extract_user_id_from_text(target_user_text)
+                
+                if extracted_uid:
+                     # Verify admin permissions
+                    if not is_user_workspace_admin(user_id, team_id):
+                        return jsonify(response_type='ephemeral', text="🚫 You do not have permission to reset other users' scores."), 200
+                    target_user_id = extracted_uid
+                else:
+                    return jsonify(response_type='ephemeral', text="Usage: `/facesinq reset-score` or `/facesinq reset-score @user`"), 200
+            
+            # Execute reset
+            try:
+                if delete_user_score(target_user_id):
+                    msg = "Your score has been reset to zero." if target_user_id == user_id else f"Score for <@{target_user_id}> has been reset to zero."
+                    return jsonify(response_type='ephemeral', text=f"✅ {msg}"), 200
+                else:
+                     return jsonify(response_type='ephemeral', text="Failed to reset score. Please try again."), 200
+            except Exception as e:
+                logger.error(f"Error resetting score: {e}")
+                return jsonify(response_type='ephemeral', text="An error occurred while resetting score."), 200
+        elif text == 'wipe-all-scores':
+            # Check if the user is a workspace admin
+            if not is_user_workspace_admin(user_id, team_id):
+                return jsonify(response_type='ephemeral', text="🚫 You do not have permission to wipe all scores."), 200
+            
+            # Execute wipe all
+            threading.Thread(target=wipe_all_scores).start()
+            return jsonify(response_type='ephemeral', text="⚠️ Wiping all scores in the background..."), 200
         else:
             return jsonify(response_type='ephemeral', text=f'You need to specify an option! Try /facesinq opt-in or /facesinq quiz for example :)'), 200
     elif command == "/facesinq-reset-quiz":
@@ -330,18 +365,18 @@ def slack_commands():
             return jsonify({
                 'response_type': 'ephemeral',  # Only the user sees this response
                 'text': "You do not have the required permissions to perform this action. Only admins are allowed."
-            }), 403
+            }), 200 # Changed from 403 to 200 to prevent Dispatch Failed
 
         # Extract target user ID from the text
         target_user_id = extract_user_id_from_text(text)  # Function to extract user ID from the command text
         if target_user_id:
             try:
                 reset_quiz_session(target_user_id)
-                return jsonify({"text": f"Quiz for user <@{target_user_id}> has been reset."})
+                return jsonify({"text": f"Quiz for user <@{target_user_id}> has been reset."}), 200
             except Exception as e:
-                return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
+                return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 200 # Changed from 500 to 200
         else:
-            return jsonify({"text": "Please specify a valid user ID using the format @username."}), 400
+            return jsonify({"text": "Please specify a valid user ID using the format @username."}), 200 # Changed from 400 to 200
 
 
 
