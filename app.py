@@ -286,7 +286,7 @@ def slack_commands():
             count = get_opted_in_user_count(team_id)
             return jsonify(response_type='ephemeral', text=f'There are {count} users opted in to FaceSinq quizzes.'), 200
         elif text == 'score':
-            score, total_attempts = get_user_score(user_id)
+            score, total_attempts, correct_attempts = get_user_score(user_id)
             return jsonify(response_type='ephemeral', text=f'Your current score is {score} (from {total_attempts} tries).'), 200
         elif text == 'leaderboard':
             attempts = get_user_attempts(user_id)

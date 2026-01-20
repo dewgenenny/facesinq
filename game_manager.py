@@ -293,12 +293,17 @@ def handle_quiz_response(user_id, selected_user_id, payload, team_id):
         streak_bonus_multiplier = min(new_streak, 10)
         streak_points = streak_bonus_multiplier * 5
         
+        # Check difficulty mode for scoring multiplier
+        is_hard_mode = getattr(user, 'difficulty_mode', 'easy') == 'hard'
+        multiplier = 2 if is_hard_mode else 1
+
         if is_correct:
-            base_points = 10
+            base_points = 10 * multiplier
             total_points = base_points + streak_points
         else:
-            base_points = 2
-            total_points = base_points # No streak bonus for wrong answers, or maybe yes? Plan said: "+5 points per day of streak". 
+            base_points = 2 * multiplier
+            total_points = base_points 
+            # Plan example: "Day 1 = 10 pts. Day 2 = 10 + 5 = 15 pts." implying bonus is added to correct answer. 
             # Plan example: "Day 1 = 10 pts. Day 2 = 10 + 5 = 15 pts." implying bonus is added to correct answer.
             # Let's assume streak bonus is only for correct answers to prevent farming points with wrong answers?
             # Actually, "Participation Points: Users get points even if they answer incorrectly".

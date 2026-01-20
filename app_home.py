@@ -16,7 +16,7 @@ def get_home_view(user_id, team_id):
     
     # Fetch user data
     user = get_user(user_id)
-    score, total_attempts = get_user_score(user_id)
+    score, total_attempts, correct_attempts = get_user_score(user_id)
     is_opted_in = has_user_opted_in(user_id)
     
     # Determine current difficulty
@@ -25,7 +25,7 @@ def get_home_view(user_id, team_id):
         difficulty = user.difficulty_mode
 
     # Calculate accuracy
-    accuracy = (score / total_attempts * 100) if total_attempts > 0 else 0
+    accuracy = (correct_attempts / total_attempts * 100) if total_attempts > 0 else 0
     
     # Get Global Stats
     global_stats = get_global_stats()
