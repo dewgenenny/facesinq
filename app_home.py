@@ -6,7 +6,8 @@ from database_helpers import (
     has_user_opted_in, 
     get_user,
     get_global_stats,
-    get_top_scores
+    get_top_scores,
+    get_fun_stats
 )
 
 logger = logging.getLogger(__name__)
@@ -146,6 +147,44 @@ def get_home_view(user_id, team_id):
                 ]
             }
         ])
+
+    blocks.append({"type": "divider"})
+
+    # Game Stats Section
+    fun_stats = get_fun_stats()
+    
+    streak_master_text = "None"
+    if 'streak_master' in fun_stats:
+        sm = fun_stats['streak_master']
+        streak_master_text = f"*{sm['name']}* ({sm['value']} days)"
+        
+    dedicated_text = "None"
+    if 'most_dedicated' in fun_stats:
+        md = fun_stats['most_dedicated']
+        dedicated_text = f"*{md['name']}* ({md['value']} tries)"
+
+    blocks.append({
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": "*FaceSinq Game Stats* 🎲"}
+    })
+    
+    blocks.append({
+         "type": "section",
+         "fields": [
+             {
+                 "type": "mrkdwn",
+                 "text": f"🌍 *Community*\n{global_stats['questions']} Questions Answered\n{global_stats['accuracy']:.0f}% Accuracy"
+             },
+             {
+                 "type": "mrkdwn",
+                 "text": f"🔥 *Streak Master*\n{streak_master_text}"
+             },
+             {
+                 "type": "mrkdwn",
+                 "text": f"🤓 *Most Dedicated*\n{dedicated_text}"
+             }
+         ]
+     })
 
     blocks.append({"type": "divider"})
 

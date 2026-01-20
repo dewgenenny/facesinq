@@ -477,6 +477,44 @@ def update_user_difficulty_mode(user_id, mode):
             print(f"Error updating difficulty mode for user {user_id}: {str(e)}")
             return False
 
+
+def get_fun_stats():
+    """Fetch fun statistics like Streak Master and Most Dedicated player."""
+    from sqlalchemy import func
+    with Session() as session:
+        try:
+            # Streak Master: Highest current streak > 0
+            streak_master = session.query(User).filter(User.current_streak > 0).order_by(User.current_streak.desc()).first()
+            
+            # Most Dedicated: Highest total attempts > 0
+            # Need to join with User to get name
+            most_dedicated = session.query(User.name_encrypted, Score.total_attempts)\
+                .join(Score)\
+                .filter(Score.total_attempts > 0)\
+                .order_by(Score.total_attempts.desc())\
+                .first()
+
+            stats = {}
+            
+            if streak_master:
+                stats['streak_master'] = {
+                    'name': streak_master.name, # Decrypts automatically
+                    'value': streak_master.current_streak
+                }
+            
+            if most_dedicated:
+                name_enc, attempts = most_dedicated
+                stats['most_dedicated'] = {
+                    'name': decrypt_value(name_enc),
+                    'value': attempts
+                }
+                
+            return stats
+
+        except SQLAlchemyError as e:
+            print(f"Error fetching fun stats: {str(e)}")
+            return {}
+
 def wipe_all_scores():
     """Wipes all scores, history, and streaks for all users."""
     with Session() as session:
