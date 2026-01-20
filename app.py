@@ -239,6 +239,23 @@ def slack_actions():
         
         # Refresh Home View
         publish_home_view(user_id, team_id, client)
+
+    elif action['action_id'] == 'view_leaderboard_home':
+        # Open Leaderboard Modal
+        leaderboard_blocks = get_leaderboard_blocks()
+        
+        # Wrap blocks in a modal view
+        view = {
+            "type": "modal",
+            "title": {"type": "plain_text", "text": "Leaderboard 🏆"},
+            "blocks": leaderboard_blocks
+        }
+        
+        try:
+             client.views_open(trigger_id=payload['trigger_id'], view=view)
+             logger.info(f"Opened leaderboard modal for user {user_id}")
+        except SlackApiError as e:
+             logger.error(f"Error opening leaderboard modal: {e.response['error']}")
         
     else:
         # Handle other actions if any
