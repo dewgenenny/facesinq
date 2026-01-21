@@ -257,6 +257,22 @@ def slack_actions():
         except SlackApiError as e:
              logger.error(f"Error opening leaderboard modal: {e.response['error']}")
         
+    elif action['action_id'] == 'help_home':
+        # Open Help Modal
+        help_blocks = get_welcome_message_blocks()
+        
+        view = {
+            "type": "modal",
+            "title": {"type": "plain_text", "text": "FaceSinq Help ❓"},
+            "blocks": help_blocks
+        }
+        
+        try:
+             client.views_open(trigger_id=payload['trigger_id'], view=view)
+             logger.info(f"Opened help modal for user {user_id}")
+        except SlackApiError as e:
+             logger.error(f"Error opening help modal: {e.response['error']}")
+
     else:
         # Handle other actions if any
         return '', 200

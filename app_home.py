@@ -83,7 +83,6 @@ def get_home_view(user_id, team_id):
                         "text": "❓ Help",
                         "emoji": True
                     },
-                    "url": "https://github.com/dewgenenny/facesinq", # Placeholder link
                     "action_id": "help_home"
                 }
             ]
