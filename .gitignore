@@ -6,3 +6,5 @@ __pycache__/
 instance/
 .idea/
 *.egg-info/
+coverage.xml
+.coverage
