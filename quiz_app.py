@@ -1,19 +1,14 @@
-import os
 import random
 from slack_sdk.errors import SlackApiError
 from sqlalchemy.orm import Session
 from db import Session
-from models import User, QuizSession
-from slack_client import get_slack_client, verify_slack_signature
-from database_helpers import get_colleagues_excluding_user, get_active_quiz_session, create_or_update_quiz_session, get_workspace_access_token
+from models import User
+from slack_client import get_slack_client
+
 # Define quiz_answers at the module level
 quiz_answers = {}
 
 # quiz_app.py
-
-from slack_sdk.errors import SlackApiError
-
-from slack_sdk.errors import SlackApiError
 
 
 def send_quiz():
@@ -51,43 +46,34 @@ def send_quiz():
             # Build interactive message
             blocks = [
                 # Text prompt
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "*Who's this colleague?*"
-                    }
-                },
+                {"type": "section", "text": {"type": "mrkdwn", "text": "*Who's this colleague?*"}},
                 # Larger image block
                 {
                     "type": "image",
                     "image_url": correct_choice.image or "https://via.placeholder.com/600",
-                    "alt_text": "Image of a colleague"
+                    "alt_text": "Image of a colleague",
                 },
                 # Action buttons
-                {
-                    "type": "actions",
-                    "elements": []
-                }
+                {"type": "actions", "elements": []},
             ]
 
             # Populate the actions block with options
             for idx, option in enumerate(options):
-                blocks[2]["elements"].append({
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": option.name},
-                    "value": option.id,
-                    "action_id": f"quiz_response_{idx}"
-                })
+                blocks[2]["elements"].append(
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": option.name},
+                        "value": option.id,
+                        "action_id": f"quiz_response_{idx}",
+                    }
+                )
 
             # Debugging: Print the blocks payload
             print(f"Sending the following blocks payload to user {user_id}: {blocks}")
 
             try:
                 response = client.chat_postMessage(
-                    channel=user_id,
-                    text="Time for a quiz!",
-                    blocks=blocks
+                    channel=user_id, text="Time for a quiz!", blocks=blocks
                 )
                 print(f"Message sent to user {user_id}, ts: {response['ts']}")
             except SlackApiError as e:

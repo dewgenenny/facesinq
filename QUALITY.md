@@ -106,14 +106,13 @@ tests/
 
 ### Coverage target
 
-- **Initial target: 70%** — achievable from a standing start, meaningful signal
-- **Steady-state target: 80%** — raise once test infrastructure is established
+- **Target: 80%** — enforced in CI; new code must not drop below this
 - Coverage is measured across `app.py`, `game_manager.py`, `database_helpers.py`, `utils.py`, `leaderboard.py`, `slack_client.py`
-- Exclude: migration scripts, one-off data scripts (`fix_data.py`, `inspect_data.py`, etc.), `create_encryption_key.py`
+- Exclude: migration scripts, one-off data scripts, `create_encryption_key.py`
 
 Run locally:
 ```bash
-pytest --cov=. --cov-report=term-missing --cov-fail-under=70
+pytest --cov=. --cov-report=term-missing --cov-fail-under=80
 ```
 
 ---
@@ -132,7 +131,7 @@ push / PR
 │  quality job                │  runs on every push + every PR
 │  1. ruff check .            │
 │  2. ruff format --check .   │
-│  3. pytest --cov --fail=70  │
+│  3. pytest --cov --fail=80  │
 └────────────┬────────────────┘
              │ must pass
              ▼

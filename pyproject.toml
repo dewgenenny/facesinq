@@ -14,7 +14,7 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=. --cov-report=term-missing --cov-fail-under=70"
+addopts = "--cov=. --cov-report=term-missing --cov-fail-under=80"
 
 [tool.coverage.run]
 source = ["."]
@@ -27,7 +27,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 70
+fail_under = 80
 exclude_lines = [
     "if __name__ == .__main__.:",
     "pragma: no cover",

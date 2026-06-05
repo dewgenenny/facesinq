@@ -287,3 +287,148 @@ class TestUsersDueForQuiz:
         # opted_in defaults to False
         due = get_users_due_for_quiz()
         assert not any(u.id == "U111" for u in due)
+
+
+# ── get_user_access_token ─────────────────────────────────────────────────────
+
+
+class TestGetUserAccessToken:
+    def test_returns_token_when_user_and_workspace_exist(self, make_user, make_workspace):
+        make_workspace(team_id="T500", token="xoxb-token-500")
+        make_user(user_id="U500", team_id="T500")
+        from database_helpers import get_user_access_token
+
+        assert get_user_access_token("U500") == "xoxb-token-500"
+
+    def test_raises_when_user_not_found(self):
+        import pytest
+
+        from database_helpers import get_user_access_token
+
+        with pytest.raises(ValueError, match="No user found"):
+            get_user_access_token("UNOPE_TOKEN")
+
+    def test_raises_when_workspace_not_found(self, make_user):
+        # User exists but team has no corresponding workspace row
+        make_user(user_id="U501", team_id="TORPHAN")
+        import pytest
+
+        from database_helpers import get_user_access_token
+
+        with pytest.raises(ValueError, match="No workspace found"):
+            get_user_access_token("U501")
+
+
+# ── Exception handler coverage ────────────────────────────────────────────────
+
+
+class TestExceptionHandlers:
+    """Exercise exception branches that require mocked DB errors."""
+
+    def _ctx_mock(self, mock_session_cls, side_effect):
+        """Configure the context-manager session mock to raise on .query()."""
+        mock_ctx = mock_session_cls.return_value.__enter__.return_value
+        mock_ctx.query.side_effect = side_effect
+        return mock_ctx
+
+    def test_get_user_score_db_error_returns_zeros(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from database_helpers import get_user_score
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, SQLAlchemyError("db error"))
+            assert get_user_score("U001") == (0, 0, 0)
+
+    def test_get_user_attempts_db_error_returns_zero(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from database_helpers import get_user_attempts
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, SQLAlchemyError("db error"))
+            assert get_user_attempts("U001") == 0
+
+    def test_get_global_stats_db_error_returns_defaults(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from database_helpers import get_global_stats
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, SQLAlchemyError("db error"))
+            result = get_global_stats()
+        assert result == {"players": 0, "questions": 0, "accuracy": 0.0}
+
+    def test_wipe_all_scores_db_error_returns_false(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from database_helpers import wipe_all_scores
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, SQLAlchemyError("db error"))
+            assert wipe_all_scores() is False
+
+    def test_update_user_opt_in_db_error_rolls_back(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from database_helpers import update_user_opt_in
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, SQLAlchemyError("db error"))
+            # Should not raise; returns None on SQLAlchemy error path
+            update_user_opt_in("U001", True)
+
+    def test_add_workspace_integrity_error_rolls_back(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import IntegrityError
+
+        from database_helpers import add_workspace
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, IntegrityError("dup", {}, None))
+            # Should not raise
+            add_workspace("T999", "Name", "token")
+
+    def test_add_workspace_sqlalchemy_error_rolls_back(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from database_helpers import add_workspace
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, SQLAlchemyError("db error"))
+            add_workspace("T999", "Name", "token")
+
+    def test_add_or_update_user_integrity_error(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import IntegrityError
+
+        from database_helpers import add_or_update_user
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, IntegrityError("dup", {}, None))
+            add_or_update_user("U999", "Name", "http://img", "T001")
+
+    def test_add_or_update_user_sqlalchemy_error(self):
+        from unittest.mock import patch
+
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from database_helpers import add_or_update_user
+
+        with patch("database_helpers.Session") as mock_cls:
+            self._ctx_mock(mock_cls, SQLAlchemyError("db error"))
+            add_or_update_user("U999", "Name", "http://img", "T001")
