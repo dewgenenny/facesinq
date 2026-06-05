@@ -1,10 +1,11 @@
 import json
 import logging
 import os
+import secrets
 import threading
 import time
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, redirect, request, session
 
 from database_helpers import (
     add_workspace,
@@ -31,6 +32,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+# Required for signed session cookies used in OAuth CSRF state validation.
+# Falls back to SLACK_SIGNING_SECRET so existing deployments need no new var.
+app.secret_key = os.environ.get("SECRET_KEY") or os.environ.get("SLACK_SIGNING_SECRET", "")
 
 # Configuration for SQLAlchemy
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///facesinq.db")
@@ -128,16 +132,36 @@ def get_welcome_message_blocks():
     return blocks
 
 
+@app.route("/slack/begin_install", methods=["GET"])
+def begin_install():
+    """Initiate Slack OAuth flow with CSRF state token."""
+    state = secrets.token_urlsafe(32)
+    session["oauth_state"] = state
+    client_id = os.environ.get("CLIENT_ID", "")
+    redirect_uri = os.environ.get("REDIRECT_URI", "")
+    slack_oauth_url = (
+        f"https://slack.com/oauth/v2/authorize"
+        f"?client_id={client_id}"
+        f"&redirect_uri={redirect_uri}"
+        f"&state={state}"
+    )
+    return redirect(slack_oauth_url)
+
+
 @app.route("/slack/oauth_redirect", methods=["GET"])
 def oauth_redirect():
-    # Get authorization code from Slack
     code = request.args.get("code")
+    returned_state = request.args.get("state")
+    expected_state = session.pop("oauth_state", None)
 
-    # Handle the OAuth redirect using slack_client
+    if not returned_state or returned_state != expected_state:
+        logger.warning("OAuth CSRF state mismatch — rejecting install attempt")
+        return jsonify({"error": "invalid state parameter"}), 403
+
     success, message = handle_slack_oauth_redirect(code)
 
     if success:
-        logger.info("received oauth request")
+        logger.info("OAuth install completed successfully")
         return message, 200
     else:
         return jsonify({"error": message}), 400
@@ -545,19 +569,6 @@ def slack_events():
         if event:
             handle_slack_event(event, team_id)
             return "", 200
-
-
-@app.route("/slack/install", methods=["POST"])
-def slack_install():
-    # Assuming this route is triggered when the app is installed in a workspace
-    team_id = request.form.get("team_id")
-    team_name = request.form.get("team_name")
-
-    logger.info(f"Slack install triggered for team: {team_name} ({team_id})")
-
-    add_workspace(team_id, team_name)
-
-    return "App Installed Successfully", 200
 
 
 def handle_sync_users_command(user_id, team_id):

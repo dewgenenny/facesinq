@@ -10,6 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Run as non-root to limit blast radius of any vulnerability in dependencies
+RUN useradd -m -u 1000 app && chown -R app /app
+USER app
+
 # Set default environment variables
 ENV PORT=3000
 

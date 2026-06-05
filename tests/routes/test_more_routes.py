@@ -19,15 +19,39 @@ def _cmd(client, text="", command="/facesinq", user_id="U001", team_id="T001", c
     )
 
 
-# ── slack_install ─────────────────────────────────────────────────────────────
+# ── begin_install / oauth_redirect ───────────────────────────────────────────
 
 
-class TestSlackInstall:
-    def test_install_returns_200(self, flask_client):
-        with patch("app.add_workspace"):
-            resp = flask_client.post(
-                "/slack/install", data={"team_id": "T001", "team_name": "Test Workspace"}
-            )
+class TestBeginInstall:
+    def test_begin_install_redirects_to_slack(self, flask_client):
+        resp = flask_client.get("/slack/begin_install")
+        assert resp.status_code == 302
+        assert "slack.com/oauth/v2/authorize" in resp.headers["Location"]
+
+    def test_begin_install_sets_state_cookie(self, flask_client):
+        with flask_client.session_transaction() as pre:
+            assert "oauth_state" not in pre
+        flask_client.get("/slack/begin_install")
+        with flask_client.session_transaction() as post:
+            assert "oauth_state" in post
+
+    def test_oauth_redirect_rejects_missing_state(self, flask_client):
+        resp = flask_client.get("/slack/oauth_redirect?code=CODE123")
+        assert resp.status_code == 403
+
+    def test_oauth_redirect_rejects_wrong_state(self, flask_client):
+        with flask_client.session_transaction() as sess:
+            sess["oauth_state"] = "correct-state"
+        resp = flask_client.get("/slack/oauth_redirect?code=CODE123&state=wrong-state")
+        assert resp.status_code == 403
+
+    def test_oauth_redirect_accepts_correct_state(self, flask_client):
+        with flask_client.session_transaction() as sess:
+            sess["oauth_state"] = "my-state"
+        with patch(
+            "app.handle_slack_oauth_redirect", return_value=(True, "Installation Successful!")
+        ):
+            resp = flask_client.get("/slack/oauth_redirect?code=CODE123&state=my-state")
         assert resp.status_code == 200
 
 

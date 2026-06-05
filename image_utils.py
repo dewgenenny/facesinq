@@ -1,10 +1,52 @@
 import io
+import ipaddress
 import logging
+from urllib.parse import urlparse
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
+
+# Allowlist of hostnames that serve Slack user profile images.
+_ALLOWED_IMAGE_HOSTS = {
+    "avatars.slack-edge.com",
+    "secure.gravatar.com",
+    "a.slack-edge.com",
+    "ca.slack-edge.com",
+}
+
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local / AWS metadata
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _is_safe_image_url(url: str) -> bool:
+    """Return True only for HTTPS URLs pointing to approved Slack CDN hosts."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            return False
+        host = parsed.hostname or ""
+        # Allow exact matches and subdomains of allowed hosts
+        if not any(host == h or host.endswith("." + h) for h in _ALLOWED_IMAGE_HOSTS):
+            return False
+        # Reject if host resolves to a private/loopback address (DNS rebinding guard)
+        try:
+            addr = ipaddress.ip_address(host)
+            if any(addr in net for net in _PRIVATE_RANGES):
+                return False
+        except ValueError:
+            pass  # host is a name, not an IP — allowlist check above is sufficient
+        return True
+    except Exception:
+        return False
 
 
 def generate_grid_image_bytes(image_urls):
@@ -15,15 +57,18 @@ def generate_grid_image_bytes(image_urls):
     try:
         images = []
         for url in image_urls:
+            if not _is_safe_image_url(url):
+                logger.warning(f"Blocked image fetch for disallowed URL: {url}")
+                images.append(None)
+                continue
             try:
-                # Use a smaller version if available (optimization) but we likely have 512px
                 resp = requests.get(url, timeout=5)
                 if resp.status_code == 200:
                     img = Image.open(io.BytesIO(resp.content))
                     images.append(img)
                 else:
                     logger.warning(f"Failed to fetch image: {url} - Status: {resp.status_code}")
-                    images.append(None)  # Handle missing images?
+                    images.append(None)
             except Exception as e:
                 logger.error(f"Error fetching image {url}: {e}")
                 images.append(None)
