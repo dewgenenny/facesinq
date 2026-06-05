@@ -23,7 +23,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: facesinq
-        image: ghcr.io/dewgenenny/facesinq:sha-04c1eb9
+        image: ghcr.io/dewgenenny/facesinq:sha-1813af6
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
