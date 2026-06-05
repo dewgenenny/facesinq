@@ -1,106 +1,137 @@
-from flask import Flask, request, jsonify
-import os
-import time
 import json
-import threading
-from db import engine, initialize_database
-from models import Base
-from database_helpers import update_user_opt_in, get_user_score, get_opted_in_user_count, has_user_opted_in, add_workspace, get_all_workspaces, does_workspace_exist, get_user_access_token, reset_quiz_session, get_user_attempts, get_random_user_images, get_global_stats, update_user_difficulty_mode, delete_user_score, wipe_all_scores
 import logging
+import os
+import threading
+import time
+
+from flask import Flask, jsonify, request
+
+from database_helpers import (
+    add_workspace,
+    delete_user_score,
+    does_workspace_exist,
+    get_global_stats,
+    get_opted_in_user_count,
+    get_random_user_images,
+    get_user_access_token,
+    get_user_attempts,
+    get_user_score,
+    reset_quiz_session,
+    update_user_difficulty_mode,
+    update_user_opt_in,
+    wipe_all_scores,
+)
+from db import engine
+from models import Base
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
 # Configuration for SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///facesinq.db')
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///facesinq.db")
+if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
+    app.config["SQLALCHEMY_DATABASE_URI"] = app.config["SQLALCHEMY_DATABASE_URI"].replace(
+        "postgres://", "postgresql://", 1
+    )
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 logger.info("Starting FaceSinq application...")
-logger.info(f"Database URI configured: {'postgresql://...' if 'postgres' in app.config['SQLALCHEMY_DATABASE_URI'] else 'sqlite'}")
+logger.info(
+    f"Database URI configured: {'postgresql://...' if 'postgres' in app.config['SQLALCHEMY_DATABASE_URI'] else 'sqlite'}"
+)
 
 last_sync_times = {}
 
-# Import the rest of your modules
-from utils import fetch_and_store_users, fetch_and_store_users_for_all_workspaces, extract_user_id_from_text, fetch_and_store_single_user
-from slack_sdk.errors import SlackApiError
-from leaderboard import get_leaderboard_blocks
-from slack_client import get_slack_client, verify_slack_signature, handle_slack_oauth_redirect, handle_slack_event, is_user_workspace_admin
-from game_manager import send_quiz_to_user, handle_quiz_response
-from update_db_schema import add_columns
-from app_home import publish_home_view
+# These imports are intentionally after app/logger setup to avoid circular imports  # noqa: E402
+from slack_sdk.errors import SlackApiError  # noqa: E402
+
+from app_home import publish_home_view  # noqa: E402
+from game_manager import handle_quiz_response, send_quiz_to_user  # noqa: E402
+from leaderboard import get_leaderboard_blocks  # noqa: E402
+from slack_client import (  # noqa: E402
+    get_slack_client,
+    handle_slack_event,
+    handle_slack_oauth_redirect,
+    is_user_workspace_admin,
+    verify_slack_signature,
+)
+from update_db_schema import add_columns  # noqa: E402
+from utils import (  # noqa: E402
+    extract_user_id_from_text,
+    fetch_and_store_single_user,
+    fetch_and_store_users,
+    fetch_and_store_users_for_all_workspaces,
+)
 
 with app.app_context():
     Base.metadata.create_all(bind=engine)  # Create all tables associated with the Base metadata
-    add_columns() # Run schema updates (migrations)
-    #initialize_database()  # Optional: add initial setup logic if needed
-    #fetch_and_store_users_for_all_workspaces(update_existing=True)
+    add_columns()  # Run schema updates (migrations)
+    # initialize_database()  # Optional: add initial setup logic if needed
+    # fetch_and_store_users_for_all_workspaces(update_existing=True)
+
 
 def get_welcome_message_blocks():
     """Generate the blocks for the welcome message."""
     images = get_random_user_images(10)
-    
+
     blocks = [
         {
             "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": "Welcome to FaceSinq! 👋",
-                "emoji": True
-            }
+            "text": {"type": "plain_text", "text": "Welcome to FaceSinq! 👋", "emoji": True},
         },
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "FaceSinq helps you get to know your colleagues better! We'll show you photos of your team members, and you have to guess who they are. It's a fun way to learn names and faces."
-            }
-        }
+                "text": "FaceSinq helps you get to know your colleagues better! We'll show you photos of your team members, and you have to guess who they are. It's a fun way to learn names and faces.",
+            },
+        },
     ]
-    
+
     if images:
         image_elements = []
         for img_url in images:
-            image_elements.append({
-                "type": "image",
-                "image_url": img_url,
-                "alt_text": "Colleague photo"
-            })
-        
-        # Context block for images (max 10 elements)
-        blocks.append({
-            "type": "context",
-            "elements": image_elements
-        })
+            image_elements.append(
+                {"type": "image", "image_url": img_url, "alt_text": "Colleague photo"}
+            )
 
-    blocks.append({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq score` - Check your score.\n• `/facesinq leaderboard` - View top scores (10+ attempts).\n• `/facesinq mode [easy|hard]` - Set your difficulty mode.\n• `/facesinq reset-quiz` - Reset a stuck quiz session.\n• `/facesinq reset-score` - Reset your score to zero.\n\n*Admin Commands:*\n• `/facesinq sync-users` - Refresh user list from Slack.\n• `/facesinq wipe-all-scores` - Reset ALL scores and history."
+        # Context block for images (max 10 elements)
+        blocks.append({"type": "context", "elements": image_elements})
+
+    blocks.append(
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*How to use FaceSinq:*\n\n• `/facesinq opt-in` - Subscribe to receive random quizzes.\n• `/facesinq quiz` - Request a quiz immediately.\n• `/facesinq score` - Check your score.\n• `/facesinq leaderboard` - View top scores (10+ attempts).\n• `/facesinq mode [easy|hard]` - Set your difficulty mode.\n• `/facesinq reset-quiz` - Reset a stuck quiz session.\n• `/facesinq reset-score` - Reset your score to zero.\n\n*Admin Commands:*\n• `/facesinq sync-users` - Refresh user list from Slack.\n• `/facesinq wipe-all-scores` - Reset ALL scores and history.",
+            },
         }
-    })
+    )
 
     # Add global stats
     stats = get_global_stats()
-    blocks.append({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": f"*Community Stats:*\n🏆 {stats['players']} people playing\n📚 {stats['questions']} questions answered\n🎯 {stats['accuracy']:.1f}% average accuracy"
+    blocks.append(
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Community Stats:*\n🏆 {stats['players']} people playing\n📚 {stats['questions']} questions answered\n🎯 {stats['accuracy']:.1f}% average accuracy",
+            },
         }
-    })
-    
+    )
+
     return blocks
 
-@app.route('/slack/oauth_redirect', methods=['GET'])
+
+@app.route("/slack/oauth_redirect", methods=["GET"])
 def oauth_redirect():
     # Get authorization code from Slack
-    code = request.args.get('code')
+    code = request.args.get("code")
 
     # Handle the OAuth redirect using slack_client
     success, message = handle_slack_oauth_redirect(code)
@@ -111,40 +142,41 @@ def oauth_redirect():
     else:
         return jsonify({"error": message}), 400
 
-@app.route('/')
+
+@app.route("/")
 def index():
-    return 'FaceSinq is running!'
+    return "FaceSinq is running!"
 
 
-@app.route('/slack/actions', methods=['POST'])
+@app.route("/slack/actions", methods=["POST"])
 def slack_actions():
     # verify signature
     if not verify_slack_signature(request):
         logger.warning("Invalid request signature in slack_actions")
-        return jsonify({'error': 'invalid request signature'}), 403
+        return jsonify({"error": "invalid request signature"}), 403
 
     # Parse the payload
-    payload = json.loads(request.form.get('payload'))
+    payload = json.loads(request.form.get("payload"))
     logger.debug(f"Received slack_actions payload: {payload}")
 
-    action = payload['actions'][0]
-    user_id = payload['user']['id']
-    selected_user_id = action.get('value')
-    
+    action = payload["actions"][0]
+    user_id = payload["user"]["id"]
+    selected_user_id = action.get("value")
+
     # Message TS and Channel ID might not exist for App Home actions
-    message_ts = payload.get('message', {}).get('ts')
-    channel_id = payload.get('channel', {}).get('id')
+    message_ts = payload.get("message", {}).get("ts")
+    channel_id = payload.get("channel", {}).get("id")
 
     # Extract team_id from different possible locations in the payload
     team_id = None
 
     # 1. Try to extract team_id from the payload itself
-    if 'team' in payload and 'id' in payload['team']:
-        team_id = payload['team']['id']
+    if "team" in payload and "id" in payload["team"]:
+        team_id = payload["team"]["id"]
 
     # 2. As a fallback, try extracting from request.form
     if not team_id:
-        team_id = request.form.get('team_id')
+        team_id = request.form.get("team_id")
 
     if not team_id:
         # Log an error for debugging if no team_id is found
@@ -153,34 +185,33 @@ def slack_actions():
     # initialise slack client
     client = get_slack_client(team_id)
 
-    if action['action_id'].startswith('quiz_response'):
+    if action["action_id"].startswith("quiz_response"):
         handle_quiz_response(user_id, selected_user_id, payload, team_id)
 
-    elif action['action_id'] == 'next_quiz':
+    elif action["action_id"] == "next_quiz":
         # Handle the "Next Quiz" button click
         # Execute in background thread to avoid 3s timeout
         threading.Thread(target=send_quiz_to_user, args=(user_id, team_id)).start()
 
         # Modify the original message to disable the "Next Quiz" button
-        original_blocks = payload['message']['blocks']
+        original_blocks = payload["message"]["blocks"]
 
         # Find the action block containing the "Next Quiz" button
         next_quiz_block = None
         for block in original_blocks:
-            if block.get('block_id') == 'next_quiz_block':
+            if block.get("block_id") == "next_quiz_block":
                 next_quiz_block = block
                 break
 
         if next_quiz_block:
-            for element in next_quiz_block['elements']:
-                if element.get('action_id') == 'next_quiz':
-                    element['action_id'] = 'disabled_next_quiz'
-                    element['text']['text'] = "Next Quiz Sent"
-                    element['style'] = 'primary'
+            for element in next_quiz_block["elements"]:
+                if element.get("action_id") == "next_quiz":
+                    element["action_id"] = "disabled_next_quiz"
+                    element["text"]["text"] = "Next Quiz Sent"
+                    element["style"] = "primary"
                     break
         else:
             logger.warning("Next Quiz action block not found.")
-
 
         # Update the message
         try:
@@ -188,12 +219,12 @@ def slack_actions():
                 channel=channel_id,
                 ts=message_ts,
                 blocks=original_blocks,
-                text="Here's your next quiz!"
+                text="Here's your next quiz!",
             )
         except SlackApiError as e:
             logger.error(f"Error updating message: {e.response['error']}")
 
-    elif action['action_id'] == 'start_quiz_home':
+    elif action["action_id"] == "start_quiz_home":
         # Start a quiz from the Home Tab
         # Execute in background thread to avoid 3s timeout
         # We define a wrapper to log results since we can't get return value in main thread
@@ -208,269 +239,326 @@ def slack_actions():
                 logger.error(f"Error starting quiz from home thread: {e}")
 
         threading.Thread(target=start_quiz_wrapper, args=(user_id, team_id)).start()
-            
+
         # Refresh Home View (to update potential states or show a "Quiz Sent" message if we added that)
         publish_home_view(user_id, team_id, client)
-        
-    elif action['action_id'] == 'toggle_opt_in_home':
+
+    elif action["action_id"] == "toggle_opt_in_home":
         # Toggle Opt-in from Home (Static Select)
-        selected_option = action['selected_option']
-        new_value_str = selected_option['value']
+        selected_option = action["selected_option"]
+        new_value_str = selected_option["value"]
         new_value = True if new_value_str == "true" else False
-        
+
         logger.info(f"Toggling opt-in for user {user_id} to {new_value}")
         if not update_user_opt_in(user_id, new_value):
-             # Try refreshing user if update fails
-             if fetch_and_store_single_user(user_id, team_id):
-                 update_user_opt_in(user_id, new_value)
-        
-        # Refresh Home View
-        publish_home_view(user_id, team_id, client)
-        
-    elif action['action_id'] == 'toggle_difficulty_home':
-        # Toggle Difficulty from Home (Static Select)
-        selected_option = action['selected_option']
-        new_mode = selected_option['value'] # "easy" or "hard"
-        
-        logger.info(f"Toggling difficulty for user {user_id} to {new_mode}")
-        if not update_user_difficulty_mode(user_id, new_mode):
-             if fetch_and_store_single_user(user_id, team_id):
-                 update_user_difficulty_mode(user_id, new_mode)
-        
+            # Try refreshing user if update fails
+            if fetch_and_store_single_user(user_id, team_id):
+                update_user_opt_in(user_id, new_value)
+
         # Refresh Home View
         publish_home_view(user_id, team_id, client)
 
-    elif action['action_id'] == 'view_leaderboard_home':
+    elif action["action_id"] == "toggle_difficulty_home":
+        # Toggle Difficulty from Home (Static Select)
+        selected_option = action["selected_option"]
+        new_mode = selected_option["value"]  # "easy" or "hard"
+
+        logger.info(f"Toggling difficulty for user {user_id} to {new_mode}")
+        if not update_user_difficulty_mode(user_id, new_mode):
+            if fetch_and_store_single_user(user_id, team_id):
+                update_user_difficulty_mode(user_id, new_mode)
+
+        # Refresh Home View
+        publish_home_view(user_id, team_id, client)
+
+    elif action["action_id"] == "view_leaderboard_home":
         # Open Leaderboard Modal
         leaderboard_blocks = get_leaderboard_blocks()
-        
+
         # Wrap blocks in a modal view
         view = {
             "type": "modal",
             "title": {"type": "plain_text", "text": "Leaderboard 🏆"},
-            "blocks": leaderboard_blocks
+            "blocks": leaderboard_blocks,
         }
-        
+
         try:
-             client.views_open(trigger_id=payload['trigger_id'], view=view)
-             logger.info(f"Opened leaderboard modal for user {user_id}")
+            client.views_open(trigger_id=payload["trigger_id"], view=view)
+            logger.info(f"Opened leaderboard modal for user {user_id}")
         except SlackApiError as e:
-             logger.error(f"Error opening leaderboard modal: {e.response['error']}")
-        
-    elif action['action_id'] == 'help_home':
+            logger.error(f"Error opening leaderboard modal: {e.response['error']}")
+
+    elif action["action_id"] == "help_home":
         # Open Help Modal
         help_blocks = get_welcome_message_blocks()
-        
+
         view = {
             "type": "modal",
             "title": {"type": "plain_text", "text": "FaceSinq Help ❓"},
-            "blocks": help_blocks
+            "blocks": help_blocks,
         }
-        
+
         try:
-             client.views_open(trigger_id=payload['trigger_id'], view=view)
-             logger.info(f"Opened help modal for user {user_id}")
+            client.views_open(trigger_id=payload["trigger_id"], view=view)
+            logger.info(f"Opened help modal for user {user_id}")
         except SlackApiError as e:
-             logger.error(f"Error opening help modal: {e.response['error']}")
+            logger.error(f"Error opening help modal: {e.response['error']}")
 
     else:
         # Handle other actions if any
-        return '', 200
-    return '', 200
-@app.route('/slack/commands', methods=['POST'])
+        return "", 200
+    return "", 200
+
+
+@app.route("/slack/commands", methods=["POST"])
 def slack_commands():
 
     # Verify the request signature
     if not verify_slack_signature(request):
         logger.warning("Invalid request signature in slack_commands")
-        return jsonify({'error': 'invalid request signature'}), 403
+        return jsonify({"error": "invalid request signature"}), 403
 
+    command = request.form.get("command")
+    user_id = request.form.get("user_id")
+    text = request.form.get("text").strip().lower()
+    channel_id = request.form.get(
+        "channel_id"
+    )  # Extract channel_id from the incoming Slack command
+    team_id = request.form.get("team_id")  # Extract team_id from the incoming Slack command
 
-    command = request.form.get('command')
-    user_id = request.form.get('user_id')
-    text = request.form.get('text').strip().lower()
-    channel_id = request.form.get('channel_id')  # Extract channel_id from the incoming Slack command
-    team_id = request.form.get('team_id')  # Extract team_id from the incoming Slack command
-    
     logger.info(f"Received command: {command} text: {text} user: {user_id} team: {team_id}")
 
-    if command == '/facesinq':
+    if command == "/facesinq":
         if not text:
-            return jsonify(response_type='ephemeral', blocks=get_welcome_message_blocks()), 200
-        elif text == 'opt-in':
+            return jsonify(response_type="ephemeral", blocks=get_welcome_message_blocks()), 200
+        elif text == "opt-in":
             if not update_user_opt_in(user_id, True):
                 # User not found, try to fetch them
                 logger.info(f"User {user_id} not found during opt-in. Fetching from Slack...")
                 if fetch_and_store_single_user(user_id, team_id):
                     update_user_opt_in(user_id, True)
                 else:
-                    return jsonify(response_type='ephemeral', text='Failed to opt-in. Could not fetch user details.'), 200
-            
-            return jsonify(response_type='ephemeral', text='✅ You\'re in! Get ready for some random quizzes! 🚀'), 200
-        elif text == 'opt-out':
+                    return jsonify(
+                        response_type="ephemeral",
+                        text="Failed to opt-in. Could not fetch user details.",
+                    ), 200
+
+            return jsonify(
+                response_type="ephemeral",
+                text="✅ You're in! Get ready for some random quizzes! 🚀",
+            ), 200
+        elif text == "opt-out":
             update_user_opt_in(user_id, False)
-            return jsonify(response_type='ephemeral', text='🔕 You\'ve opted out. We\'ll miss you! Type `/facesinq opt-in` anytime to join back in.'), 200
-        elif text == 'quiz':
+            return jsonify(
+                response_type="ephemeral",
+                text="🔕 You've opted out. We'll miss you! Type `/facesinq opt-in` anytime to join back in.",
+            ), 200
+        elif text == "quiz":
             # Send a quiz to the user (no opt-in required for manual quizzes)
             success, message = send_quiz_to_user(user_id, team_id)
-            return jsonify(response_type='ephemeral', text=message), 200
-        elif text == 'stats':
+            return jsonify(response_type="ephemeral", text=message), 200
+        elif text == "stats":
             # Handle the stats command (we'll implement this in the next section)
             count = get_opted_in_user_count(team_id)
-            return jsonify(response_type='ephemeral', text=f'There are {count} users opted in to FaceSinq quizzes.'), 200
-        elif text == 'score':
+            return jsonify(
+                response_type="ephemeral",
+                text=f"There are {count} users opted in to FaceSinq quizzes.",
+            ), 200
+        elif text == "score":
             score, total_attempts, correct_attempts = get_user_score(user_id)
-            return jsonify(response_type='ephemeral', text=f'Your current score is {score} (from {total_attempts} tries).'), 200
-        elif text == 'leaderboard':
+            return jsonify(
+                response_type="ephemeral",
+                text=f"Your current score is {score} (from {total_attempts} tries).",
+            ), 200
+        elif text == "leaderboard":
             attempts = get_user_attempts(user_id)
             if attempts < 10:
-                return jsonify(response_type='ephemeral', text=f'You need to answer at least 10 quizzes to view the leaderboard! You have answered {attempts} so far.'), 200
-            
-            logger.info("Got leaderboard request. Channel: " + channel_id )
+                return jsonify(
+                    response_type="ephemeral",
+                    text=f"You need to answer at least 10 quizzes to view the leaderboard! You have answered {attempts} so far.",
+                ), 200
+
+            logger.info("Got leaderboard request. Channel: " + channel_id)
             leaderboard_blocks = get_leaderboard_blocks()
-            return jsonify(response_type='in_channel', blocks=leaderboard_blocks), 200
+            return jsonify(response_type="in_channel", blocks=leaderboard_blocks), 200
         elif text == "sync-users":
             handle_sync_users_command(user_id, team_id)
-            return jsonify(response_type='ephemeral', text=f'Syncing users'), 200
+            return jsonify(response_type="ephemeral", text="Syncing users"), 200
         elif text == "reset-quiz":
             # Allow any user to reset their own quiz session
             try:
                 reset_quiz_session(user_id)
-                return jsonify({"text": f"Your quiz session has been reset."})
+                return jsonify({"text": "Your quiz session has been reset."})
             except Exception as e:
                 logger.error(f"Error resetting quiz for {user_id}: {e}")
                 return jsonify({"text": "Failed to reset quiz. Please try again."}), 500
-        elif text.startswith('mode'):
+        elif text.startswith("mode"):
             parts = text.split()
-            if len(parts) != 2 or parts[1] not in ['easy', 'hard']:
-                return jsonify(response_type='ephemeral', text="Usage: /facesinq mode [easy | hard]"), 200
-            
+            if len(parts) != 2 or parts[1] not in ["easy", "hard"]:
+                return jsonify(
+                    response_type="ephemeral", text="Usage: /facesinq mode [easy | hard]"
+                ), 200
+
             mode = parts[1]
 
             if update_user_difficulty_mode(user_id, mode):
-                return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
+                return jsonify(
+                    response_type="ephemeral", text=f"Difficulty mode updated to *{mode}*! 🎮"
+                ), 200
             else:
                 if fetch_and_store_single_user(user_id, team_id):
                     update_user_difficulty_mode(user_id, mode)
-                    return jsonify(response_type='ephemeral', text=f"Difficulty mode updated to *{mode}*! 🎮"), 200
+                    return jsonify(
+                        response_type="ephemeral", text=f"Difficulty mode updated to *{mode}*! 🎮"
+                    ), 200
                 else:
-                    return jsonify(response_type='ephemeral', text="Failed to update mode. User not found."), 200
-        elif text.startswith('reset-score'):
+                    return jsonify(
+                        response_type="ephemeral", text="Failed to update mode. User not found."
+                    ), 200
+        elif text.startswith("reset-score"):
             # Usage: /facesinq reset-score [@user]
             parts = text.split()
-            target_user_id = user_id # Default to self
+            target_user_id = user_id  # Default to self
 
             if len(parts) > 1:
                 # Admin trying to reset someone else's score
                 target_user_text = parts[1]
                 extracted_uid = extract_user_id_from_text(target_user_text)
-                
+
                 if extracted_uid:
-                     # Verify admin permissions
+                    # Verify admin permissions
                     if not is_user_workspace_admin(user_id, team_id):
-                        return jsonify(response_type='ephemeral', text="🚫 You do not have permission to reset other users' scores."), 200
+                        return jsonify(
+                            response_type="ephemeral",
+                            text="🚫 You do not have permission to reset other users' scores.",
+                        ), 200
                     target_user_id = extracted_uid
                 else:
-                    return jsonify(response_type='ephemeral', text="Usage: `/facesinq reset-score` or `/facesinq reset-score @user`"), 200
-            
+                    return jsonify(
+                        response_type="ephemeral",
+                        text="Usage: `/facesinq reset-score` or `/facesinq reset-score @user`",
+                    ), 200
+
             # Execute reset
             try:
                 if delete_user_score(target_user_id):
-                    msg = "Your score has been reset to zero." if target_user_id == user_id else f"Score for <@{target_user_id}> has been reset to zero."
-                    return jsonify(response_type='ephemeral', text=f"✅ {msg}"), 200
+                    msg = (
+                        "Your score has been reset to zero."
+                        if target_user_id == user_id
+                        else f"Score for <@{target_user_id}> has been reset to zero."
+                    )
+                    return jsonify(response_type="ephemeral", text=f"✅ {msg}"), 200
                 else:
-                     return jsonify(response_type='ephemeral', text="Failed to reset score. Please try again."), 200
+                    return jsonify(
+                        response_type="ephemeral", text="Failed to reset score. Please try again."
+                    ), 200
             except Exception as e:
                 logger.error(f"Error resetting score: {e}")
-                return jsonify(response_type='ephemeral', text="An error occurred while resetting score."), 200
-        elif text.replace('_', '-').replace(' ', '-') == 'wipe-all-scores':
+                return jsonify(
+                    response_type="ephemeral", text="An error occurred while resetting score."
+                ), 200
+        elif text.replace("_", "-").replace(" ", "-") == "wipe-all-scores":
             # Check if the user is a workspace admin
             if not is_user_workspace_admin(user_id, team_id):
-                return jsonify(response_type='ephemeral', text="🚫 You do not have permission to wipe all scores."), 200
-            
+                return jsonify(
+                    response_type="ephemeral",
+                    text="🚫 You do not have permission to wipe all scores.",
+                ), 200
+
             # Execute wipe all
             threading.Thread(target=wipe_all_scores).start()
-            return jsonify(response_type='ephemeral', text="⚠️ Wiping all scores in the background..."), 200
+            return jsonify(
+                response_type="ephemeral", text="⚠️ Wiping all scores in the background..."
+            ), 200
         else:
             logger.info(f"Unmatched command text: '{text}'")
-            return jsonify(response_type='ephemeral', text=f'You need to specify an option! Try /facesinq opt-in or /facesinq quiz for example :)'), 200
+            return jsonify(
+                response_type="ephemeral",
+                text="You need to specify an option! Try /facesinq opt-in or /facesinq quiz for example :)",
+            ), 200
     elif command == "/facesinq-reset-quiz":
         # Check if the user is a workspace admin
         if not is_user_workspace_admin(user_id, team_id):
-            return jsonify({
-                'response_type': 'ephemeral',  # Only the user sees this response
-                'text': "You do not have the required permissions to perform this action. Only admins are allowed."
-            }), 200 # Changed from 403 to 200 to prevent Dispatch Failed
+            return jsonify(
+                {
+                    "response_type": "ephemeral",  # Only the user sees this response
+                    "text": "You do not have the required permissions to perform this action. Only admins are allowed.",
+                }
+            ), 200  # Changed from 403 to 200 to prevent Dispatch Failed
 
         # Extract target user ID from the text
-        target_user_id = extract_user_id_from_text(text)  # Function to extract user ID from the command text
+        target_user_id = extract_user_id_from_text(
+            text
+        )  # Function to extract user ID from the command text
         if target_user_id:
             try:
                 reset_quiz_session(target_user_id)
                 return jsonify({"text": f"Quiz for user <@{target_user_id}> has been reset."}), 200
             except Exception as e:
                 logger.error(f"Error resetting quiz for {target_user_id}: {e}")
-                return jsonify({"text": "Failed to reset quiz. Please try again."}), 200 # Changed from 500 to 200
+                return jsonify(
+                    {"text": "Failed to reset quiz. Please try again."}
+                ), 200  # Changed from 500 to 200
         else:
-            return jsonify({"text": "Please specify a valid user ID using the format @username."}), 200 # Changed from 400 to 200
-
-
-
-
+            return jsonify(
+                {"text": "Please specify a valid user ID using the format @username."}
+            ), 200  # Changed from 400 to 200
 
     else:
-        return jsonify(response_type='ephemeral', text="Usage: /facesinq [opt-in | opt-out | quiz | stats | leaderboard]"), 200
+        return jsonify(
+            response_type="ephemeral",
+            text="Usage: /facesinq [opt-in | opt-out | quiz | stats | leaderboard]",
+        ), 200
 
-    return '', 404
+    return "", 404
 
 
-
-
-@app.route('/slack/events', methods=['POST'])
+@app.route("/slack/events", methods=["POST"])
 def slack_events():
     # Get the request body and headers
     body = request.get_data()
-    headers = request.headers
 
     # Parse the request body as JSON
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
-        logger.error('Invalid JSON received in slack_events')
-        return jsonify({'error': 'invalid JSON'}), 400
+        logger.error("Invalid JSON received in slack_events")
+        return jsonify({"error": "invalid JSON"}), 400
 
     # Handle URL verification challenge
-    if data.get('type') == 'url_verification':
-        challenge = data.get('challenge')
-        logger.info('Handling URL verification challenge')
-        return jsonify({'challenge': challenge}), 200
+    if data.get("type") == "url_verification":
+        challenge = data.get("challenge")
+        logger.info("Handling URL verification challenge")
+        return jsonify({"challenge": challenge}), 200
 
     # Verify the request signature
     if not verify_slack_signature(request):
-        logger.warning('Invalid request signature in slack_events')
-        return jsonify({'error': 'invalid request signature'}), 403
+        logger.warning("Invalid request signature in slack_events")
+        return jsonify({"error": "invalid request signature"}), 403
 
     # Handle event callbacks
-    if data.get('type') == 'event_callback':
-        event = data.get('event')
-        team_id = data.get('team_id')  # Extract the `team_id` from the request
+    if data.get("type") == "event_callback":
+        event = data.get("event")
+        team_id = data.get("team_id")  # Extract the `team_id` from the request
 
         # Delegate event handling to slack_client
         if event:
             handle_slack_event(event, team_id)
-            return '', 200
+            return "", 200
 
-@app.route('/slack/install', methods=['POST'])
+
+@app.route("/slack/install", methods=["POST"])
 def slack_install():
     # Assuming this route is triggered when the app is installed in a workspace
-    team_id = request.form.get('team_id')
-    team_name = request.form.get('team_name')
+    team_id = request.form.get("team_id")
+    team_name = request.form.get("team_name")
 
-    logger.info(f'Slack install triggered for team: {team_name} ({team_id})')
+    logger.info(f"Slack install triggered for team: {team_name} ({team_id})")
 
     add_workspace(team_id, team_name)
 
     return "App Installed Successfully", 200
+
 
 def handle_sync_users_command(user_id, team_id):
     """Handle the `/sync-users` command to refresh users in the workspace."""
@@ -488,31 +576,36 @@ def handle_sync_users_command(user_id, team_id):
             client = get_slack_client()
             response = client.team_info()
 
-            if not response.get('ok'):
-                return jsonify({
-                    'response_type': 'ephemeral',
-                    'text': "Failed to retrieve workspace information from Slack. Please try again or contact support."
-                })
+            if not response.get("ok"):
+                return jsonify(
+                    {
+                        "response_type": "ephemeral",
+                        "text": "Failed to retrieve workspace information from Slack. Please try again or contact support.",
+                    }
+                )
 
-            team_info = response.get('team', {})
-            team_name = team_info.get('name', 'Unknown Workspace')
+            team_info = response.get("team", {})
+            team_name = team_info.get("name", "Unknown Workspace")
 
             # Add workspace to the database
             add_workspace(team_id, team_name, access_token)
 
         except SlackApiError as e:
-            logger.error(f'Slack API Error: {e.response["error"]}')
-            return jsonify({
-                'response_type': 'ephemeral',
-                'text': f"Failed to retrieve workspace information from Slack: {e.response['error']}"
-            })
+            logger.error(f"Slack API Error: {e.response['error']}")
+            return jsonify(
+                {
+                    "response_type": "ephemeral",
+                    "text": f"Failed to retrieve workspace information from Slack: {e.response['error']}",
+                }
+            )
         except Exception as e:
-            logger.exception(f'Error adding workspace: {str(e)}')
-            return jsonify({
-                'response_type': 'ephemeral',
-                'text': "An unexpected error occurred while adding the workspace. Please try again."
-            })
-
+            logger.exception(f"Error adding workspace: {str(e)}")
+            return jsonify(
+                {
+                    "response_type": "ephemeral",
+                    "text": "An unexpected error occurred while adding the workspace. Please try again.",
+                }
+            )
 
     # Rate limit check: Ensure the command is not called too often
     if team_id in last_sync_times:
@@ -521,10 +614,12 @@ def handle_sync_users_command(user_id, team_id):
             remaining_time = rate_limit_interval - elapsed_time
             minutes = int(remaining_time // 60)
             seconds = int(remaining_time % 60)
-            return jsonify({
-                'response_type': 'ephemeral',
-                'text': f"Sync can be run only once per hour. Please try again in {minutes} minutes and {seconds} seconds."
-            })
+            return jsonify(
+                {
+                    "response_type": "ephemeral",
+                    "text": f"Sync can be run only once per hour. Please try again in {minutes} minutes and {seconds} seconds.",
+                }
+            )
 
     # Update last sync time
     last_sync_times[team_id] = current_time
@@ -532,30 +627,39 @@ def handle_sync_users_command(user_id, team_id):
     # Start the user sync
     try:
         fetch_and_store_users(team_id, update_existing=True)
-        return jsonify({
-            'response_type': 'in_channel',
-            'text': "User sync successfully started for your workspace."
-        })
+        return jsonify(
+            {
+                "response_type": "in_channel",
+                "text": "User sync successfully started for your workspace.",
+            }
+        )
     except SlackApiError as e:
-        return jsonify({
-            'response_type': 'ephemeral',
-            'text': f"Failed to start user sync: {e.response['error']}"
-        })
+        return jsonify(
+            {
+                "response_type": "ephemeral",
+                "text": f"Failed to start user sync: {e.response['error']}",
+            }
+        )
     except Exception as e:
         logger.error(f"Unexpected error during user sync for {team_id}: {e}")
-        return jsonify({
-            'response_type': 'ephemeral',
-            'text': "An unexpected error occurred. Please try again."
-        })
+        return jsonify(
+            {
+                "response_type": "ephemeral",
+                "text": "An unexpected error occurred. Please try again.",
+            }
+        )
 
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from game_manager import send_quiz_to_user, handle_quiz_response, process_random_quizzes
+from apscheduler.schedulers.background import BackgroundScheduler  # noqa: E402
+
+from game_manager import process_random_quizzes  # noqa: E402
 
 # Initialize scheduler
 scheduler = BackgroundScheduler()
-scheduler.add_job(fetch_and_store_users_for_all_workspaces, 'interval', hours=1, kwargs={'update_existing': True})
-scheduler.add_job(process_random_quizzes, 'interval', minutes=5)
+scheduler.add_job(
+    fetch_and_store_users_for_all_workspaces, "interval", hours=1, kwargs={"update_existing": True}
+)
+scheduler.add_job(process_random_quizzes, "interval", minutes=5)
 scheduler.start()
 logger.info("BackgroundScheduler started.")
 
@@ -568,6 +672,6 @@ try:
 except Exception as e:
     logger.error(f"Startup user sync failed: {e}")
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 3000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 3000))
+    app.run(host="0.0.0.0", port=port)

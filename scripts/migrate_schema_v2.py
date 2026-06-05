@@ -6,18 +6,23 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def migrate():
     # 1. Add columns if they don't exist
     with engine.connect() as connection:
         try:
             logger.info("Adding correct_attempts to scores...")
-            connection.execute(text("ALTER TABLE scores ADD COLUMN correct_attempts INTEGER DEFAULT 0"))
+            connection.execute(
+                text("ALTER TABLE scores ADD COLUMN correct_attempts INTEGER DEFAULT 0")
+            )
         except Exception as e:
             logger.warning(f"Could not add correct_attempts (might exist): {e}")
 
         try:
             logger.info("Adding is_correct to score_history...")
-            connection.execute(text("ALTER TABLE score_history ADD COLUMN is_correct BOOLEAN DEFAULT 0"))
+            connection.execute(
+                text("ALTER TABLE score_history ADD COLUMN is_correct BOOLEAN DEFAULT 0")
+            )
         except Exception as e:
             logger.warning(f"Could not add is_correct (might exist): {e}")
 
@@ -43,15 +48,17 @@ def migrate():
         logger.info("Recalculating Score.correct_attempts...")
         scores = session.query(Score).all()
         for s in scores:
-            correct_count = session.query(ScoreHistory).filter(
-                ScoreHistory.user_id == s.user_id,
-                ScoreHistory.is_correct == True
-            ).count()
+            correct_count = (
+                session.query(ScoreHistory)
+                .filter(ScoreHistory.user_id == s.user_id, ScoreHistory.is_correct == True)
+                .count()
+            )
             s.correct_attempts = correct_count
             logger.info(f"User {s.user_id}: correct_attempts set to {correct_count}")
-        
+
         session.commit()
     logger.info("Migration complete.")
+
 
 if __name__ == "__main__":
     migrate()

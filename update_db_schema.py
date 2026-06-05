@@ -1,9 +1,12 @@
-from db import engine, Session
-from sqlalchemy import text
 import logging
+
+from sqlalchemy import text
+
+from db import engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def add_columns():
     with engine.connect() as connection:
@@ -26,7 +29,9 @@ def add_columns():
         try:
             # Add total_attempts
             logger.info("Adding total_attempts column...")
-            connection.execute(text("ALTER TABLE scores ADD COLUMN total_attempts INTEGER DEFAULT 0"))
+            connection.execute(
+                text("ALTER TABLE scores ADD COLUMN total_attempts INTEGER DEFAULT 0")
+            )
             logger.info("Added total_attempts column.")
         except Exception as e:
             logger.warning(f"Could not add total_attempts (might already exist): {e}")
@@ -34,7 +39,9 @@ def add_columns():
         try:
             # Add current_streak
             logger.info("Adding current_streak column...")
-            connection.execute(text("ALTER TABLE users ADD COLUMN current_streak INTEGER DEFAULT 0"))
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN current_streak INTEGER DEFAULT 0")
+            )
             logger.info("Added current_streak column.")
         except Exception as e:
             logger.warning(f"Could not add current_streak (might already exist): {e}")
@@ -50,10 +57,13 @@ def add_columns():
         try:
             # Add difficulty_mode
             logger.info("Adding difficulty_mode column...")
-            connection.execute(text("ALTER TABLE users ADD COLUMN difficulty_mode VARCHAR DEFAULT 'easy'"))
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN difficulty_mode VARCHAR DEFAULT 'easy'")
+            )
             logger.info("Added difficulty_mode column.")
         except Exception as e:
             logger.warning(f"Could not add difficulty_mode (might already exist): {e}")
+
 
 if __name__ == "__main__":
     add_columns()
