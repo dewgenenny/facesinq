@@ -217,7 +217,7 @@ def send_quiz_to_user(user_id, team_id):
         logger.error(f"Error sending quiz to {user_id}: {e}")
         # CRITICAL: Clean up the session if sending failed so user isn't stuck
         delete_quiz_session(user_id)
-        return False, str(e)
+        return False, "An error occurred while sending the quiz."
     except SlackApiError as e:
         logger.error(f"Error sending quiz to {user_id}: {e.response['error']}")
         delete_quiz_session(user_id) # Ensure cleanup here too

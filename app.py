@@ -338,7 +338,8 @@ def slack_commands():
                 reset_quiz_session(user_id)
                 return jsonify({"text": f"Your quiz session has been reset."})
             except Exception as e:
-                return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 500
+                logger.error(f"Error resetting quiz for {user_id}: {e}")
+                return jsonify({"text": "Failed to reset quiz. Please try again."}), 500
         elif text.startswith('mode'):
             parts = text.split()
             if len(parts) != 2 or parts[1] not in ['easy', 'hard']:
@@ -408,7 +409,8 @@ def slack_commands():
                 reset_quiz_session(target_user_id)
                 return jsonify({"text": f"Quiz for user <@{target_user_id}> has been reset."}), 200
             except Exception as e:
-                return jsonify({"text": f"Failed to reset quiz: {str(e)}"}), 200 # Changed from 500 to 200
+                logger.error(f"Error resetting quiz for {target_user_id}: {e}")
+                return jsonify({"text": "Failed to reset quiz. Please try again."}), 200 # Changed from 500 to 200
         else:
             return jsonify({"text": "Please specify a valid user ID using the format @username."}), 200 # Changed from 400 to 200
 
@@ -508,7 +510,7 @@ def handle_sync_users_command(user_id, team_id):
             logger.exception(f'Error adding workspace: {str(e)}')
             return jsonify({
                 'response_type': 'ephemeral',
-                'text': f"An unexpected error occurred while adding the workspace: {str(e)}"
+                'text': "An unexpected error occurred while adding the workspace. Please try again."
             })
 
 
@@ -540,9 +542,10 @@ def handle_sync_users_command(user_id, team_id):
             'text': f"Failed to start user sync: {e.response['error']}"
         })
     except Exception as e:
+        logger.error(f"Unexpected error during user sync for {team_id}: {e}")
         return jsonify({
             'response_type': 'ephemeral',
-            'text': f"An unexpected error occurred: {str(e)}"
+            'text': "An unexpected error occurred. Please try again."
         })
 
 

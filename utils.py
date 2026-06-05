@@ -9,6 +9,7 @@ import os
 from database_helpers import add_or_update_user, does_user_exist, get_all_workspaces, get_workspace_access_token, add_workspace
 import re
 import logging
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,8 @@ def should_skip_user(user):
     image = profile.get('image_512') or profile.get('image_192') or profile.get('image_72', '')
 
     # Skip users who do not have a real profile photo set (e.g., a placeholder like Gravatar)
-    if not image or "secure.gravatar.com" in image:
+    # Parse the URL to check the hostname rather than substring-matching, which is bypassable.
+    if not image or urlparse(image).hostname == "secure.gravatar.com":
         logger.debug(f"Discounting profile - image is: {image}")
         return True
 
