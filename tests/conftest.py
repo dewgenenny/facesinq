@@ -6,7 +6,11 @@ from cryptography.fernet import Fernet
 # ── env vars must be set before any app module is imported ──────────────────
 _TEST_KEY = Fernet.generate_key().decode()
 os.environ.setdefault("DATABASE_URL", "sqlite:///tests/test_facesinq.db")
-os.environ.setdefault("ENCRYPTION_KEY", _TEST_KEY)
+# Use setdefault for most vars but explicitly handle ENCRYPTION_KEY: if it is
+# absent or empty (e.g. GitHub Actions resolves a missing secret to ""), replace
+# it with a freshly generated Fernet key so models.py doesn't raise on import.
+if not os.environ.get("ENCRYPTION_KEY"):
+    os.environ["ENCRYPTION_KEY"] = _TEST_KEY
 os.environ.setdefault("SLACK_BOT_TOKEN", "xoxb-test-token")
 os.environ.setdefault("SLACK_SIGNING_SECRET", "a" * 32)
 os.environ.setdefault("CLIENT_ID", "test_client_id")
