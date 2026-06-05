@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dewgenenny/facesinq/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/dewgenenny/facesinq/actions/workflows/docker-publish.yml)
 [![Coverage](https://raw.githubusercontent.com/dewgenenny/facesinq/master/badges/coverage.svg)](https://github.com/dewgenenny/facesinq/actions/workflows/docker-publish.yml)
-[![Python](https://img.shields.io/badge/python-3.9-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://github.com/dewgenenny/facesinq/pkgs/container/facesinq)
 
 FaceSinq is a Slack bot designed to help team members learn each other's names and faces through interactive quizzes. It syncs user data from Slack, encrypts sensitive information (names, profile images), and provides a gamified experience with leaderboards and stats.

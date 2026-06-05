@@ -35,7 +35,7 @@ class TestGetRandomUserImages:
         make_user(user_id="U002", image="http://img2.jpg")
         images = get_random_user_images(5)
         assert len(images) == 2
-        assert "http://img1.jpg" in images
+        assert set(images) == {"http://img1.jpg", "http://img2.jpg"}
 
 
 class TestGetTopScores:
