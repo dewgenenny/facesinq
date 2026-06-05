@@ -67,7 +67,7 @@ The application is containerized and ready for deployment on Kubernetes via Argo
 
 The Docker image is automatically built and pushed to GitHub Container Registry (GHCR) via GitHub Actions on every push to `main`.
 
-**Image Path:** `ghcr.io/<your-github-username>/facesinq:latest`
+**Image Path:** `ghcr.io/dewgenenny/facesinq:latest`
 
 > [!NOTE]
 > Ensure you update the `image` field in `k8s/deployment.yaml` to match this path.
